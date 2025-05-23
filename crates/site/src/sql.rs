@@ -1,4 +1,6 @@
-use color_eyre::Result;
+use std::path::Path;
+
+use color_eyre::{Result, eyre::ContextCompat};
 use rusqlite::Connection;
 
 /// Set up SQLite database.
@@ -63,4 +65,21 @@ pub fn setup_sql() -> Result<Connection> {
     )?;
 
     Ok(conn)
+}
+
+pub fn get_hashes<P: AsRef<Path>>(conn: &Connection, path: P) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT hash FROM entries WHERE path = :path")?;
+    let path_str = path
+        .as_ref()
+        .to_str()
+        .context("Error while converting path to string")?;
+
+    let hashes_iter = stmt.query_map(&[(":path", path_str)], |row| row.get(0))?;
+    let mut hashes: Vec<String> = Vec::new();
+
+    for hash in hashes_iter {
+        hashes.push(hash?);
+    }
+
+    Ok(hashes)
 }

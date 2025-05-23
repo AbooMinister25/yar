@@ -6,6 +6,7 @@ edition.workspace = true
 color-eyre.workspace = true
 ignore = "0.4.23"
 rusqlite = "0.35.0"
+seahash = "4.1.0"
 
 [lints]
 workspace = true
