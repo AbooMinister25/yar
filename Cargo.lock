@@ -499,6 +499,7 @@ dependencies = [
  "ignore",
  "rusqlite",
  "seahash",
+ "serde",
 ]
 
 [[package]]
