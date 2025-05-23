@@ -3,6 +3,7 @@ name = "site"
 edition.workspace = true
 
 [dependencies]
+color-eyre.workspace = true
 
 [lints]
 workspace = true
