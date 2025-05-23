@@ -19,6 +19,7 @@ enum Commands {
 }
 
 fn main() -> Result<()> {
+    color_eyre::install()?;
     let arguments = Args::parse();
 
     Ok(())

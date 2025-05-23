@@ -4,6 +4,7 @@ edition.workspace = true
 
 [dependencies]
 color-eyre.workspace = true
+ignore = "0.4.23"
 
 [lints]
 workspace = true
