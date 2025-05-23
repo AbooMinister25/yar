@@ -5,6 +5,7 @@ edition.workspace = true
 [dependencies]
 color-eyre.workspace = true
 ignore = "0.4.23"
+rusqlite = "0.35.0"
 
 [lints]
 workspace = true
