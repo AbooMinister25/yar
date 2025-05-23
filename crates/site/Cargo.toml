@@ -1,0 +1,8 @@
+[package]
+name = "site"
+edition.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true
