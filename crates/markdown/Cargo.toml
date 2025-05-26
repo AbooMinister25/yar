@@ -3,8 +3,12 @@ name = "markdown"
 edition.workspace = true
 
 [dependencies]
+chrono = { version = "0.4.41", features = ["serde"] }
 color-eyre.workspace = true
+pulldown-cmark = { version = "0.13.0", default-features = false, features = ["html"] }
 serde = { version = "1.0.219", features = ["derive"] }
+syntect = { version = "5.2.0", default-features = false, features = ["default-fancy"] }
+toml = "0.8.22"
 
 [lints]
 workspace = true

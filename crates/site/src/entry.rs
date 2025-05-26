@@ -40,7 +40,7 @@ pub fn discover_entries<T: AsRef<Path>>(path: T, conn: &Connection) -> Result<Ve
     for ((path, content), hash) in entries.into_iter().zip(hashes) {
         let hashes = get_hashes(conn, &path)?;
 
-        // Either a new file was created, or an existing file was changed/
+        // Either a new file was created, or an existing file was changed.
         if hashes.is_empty() || hashes[0] != hash {
             ret.push(Entry::new(path, content, hash))
         }
