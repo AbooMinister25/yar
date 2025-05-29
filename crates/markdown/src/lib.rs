@@ -87,69 +87,82 @@ pub fn render_markdown(content: &str) -> Result<Document> {
     let mut codeblock = None;
     let mut current_heading = None;
     let mut headings = Vec::new();
+    let mut character_count = 0;
+    let mut summary_events = Vec::new();
 
-    let parser = parser.filter_map(|event| match event {
-        // TODO: Emit <pre><code> and highlight line by line.
-        Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
-            let lang = lang.trim();
-            codeblock = Some(CodeBlock::new(lang.into()));
-            None
+    let parser = parser.filter_map(|event| {
+        // If there are currently less than 150 characters of text that have been parsed, add the
+        // node to the summary.
+        if character_count <= 150 {
+            summary_events.push(event.clone());
         }
-        Event::End(TagEnd::CodeBlock) => {
-            if let Some(cb) = &codeblock {
-                let syntax = SYNTAX_SET
-                    .find_syntax_by_extension(&cb.lang)
-                    .unwrap_or(SYNTAX_SET.find_syntax_plain_text());
-                let html = highlighted_html_for_string(
-                    &cb.text,
-                    &SYNTAX_SET,
-                    syntax,
-                    &THEME_SET.themes["solarized-dark"],
-                )
-                .ok()?;
-
-                codeblock = None;
-                Some(Event::Html(html.into()))
-            } else {
+        match event {
+            // TODO: Emit <pre><code> and highlight line by line.
+            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
+                let lang = lang.trim();
+                codeblock = Some(CodeBlock::new(lang.into()));
                 None
             }
-        }
-        Event::Start(Tag::Heading {
-            level: HeadingLevel::H2,
-            ref id,
-            ..
-        }) => {
-            current_heading = Some(TOCHeading::new(
-                id.as_ref().map(|c| c.to_string()),
-                "".to_string(),
-            ));
-            Some(event)
-        }
-        Event::End(TagEnd::Heading(HeadingLevel::H2)) => {
-            headings.push(current_heading.take().expect("Heading end before start?"));
-            Some(event)
-        }
-        Event::Text(ref t) => {
-            if let Some(cb) = &mut codeblock {
-                cb.text.push_str(t);
-            } else if let Some(h) = &mut current_heading {
-                h.text.push_str(t);
+            Event::End(TagEnd::CodeBlock) => {
+                if let Some(cb) = &codeblock {
+                    let syntax = SYNTAX_SET
+                        .find_syntax_by_extension(&cb.lang)
+                        .unwrap_or(SYNTAX_SET.find_syntax_plain_text());
+                    let html = highlighted_html_for_string(
+                        &cb.text,
+                        &SYNTAX_SET,
+                        syntax,
+                        &THEME_SET.themes["solarized-dark"],
+                    )
+                    .ok()?;
+
+                    codeblock = None;
+                    Some(Event::Html(html.into()))
+                } else {
+                    None
+                }
             }
-            Some(event)
-        }
-        Event::Code(ref s)
-        | Event::InlineMath(ref s)
-        | Event::DisplayMath(ref s)
-        | Event::InlineHtml(ref s) => {
-            if let Some(h) = &mut current_heading {
-                h.text.push_str(s);
+            Event::Start(Tag::Heading {
+                level: HeadingLevel::H2,
+                ref id,
+                ..
+            }) => {
+                current_heading = Some(TOCHeading::new(
+                    id.as_ref().map(|c| c.to_string()),
+                    "".to_string(),
+                ));
+                Some(event)
             }
-            Some(event)
+            Event::End(TagEnd::Heading(HeadingLevel::H2)) => {
+                headings.push(current_heading.take().expect("Heading end before start?"));
+                Some(event)
+            }
+            Event::Text(ref t) => {
+                if let Some(cb) = &mut codeblock {
+                    cb.text.push_str(t);
+                } else if let Some(h) = &mut current_heading {
+                    h.text.push_str(t);
+                }
+                character_count += t.len();
+                Some(event)
+            }
+            Event::Code(ref s)
+            | Event::InlineMath(ref s)
+            | Event::DisplayMath(ref s)
+            | Event::InlineHtml(ref s) => {
+                if let Some(h) = &mut current_heading {
+                    h.text.push_str(s);
+                }
+                Some(event)
+            }
+            _ => Some(event),
         }
-        _ => Some(event),
     });
 
     push_html(&mut html_output, parser);
+
+    let mut summary = String::new();
+    push_html(&mut summary, summary_events.into_iter());
 
     // Extract dates from frontmatter
     let date = frontmatter.date.as_ref().map_or(
@@ -173,7 +186,7 @@ pub fn render_markdown(content: &str) -> Result<Document> {
         updated,
         content: html_output,
         toc: headings,
-        summary: "".to_string(),
+        summary,
         frontmatter,
     })
 }
