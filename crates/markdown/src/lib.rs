@@ -124,23 +124,26 @@ pub fn render_markdown(content: &str) -> Result<Document> {
             // TODO: Emit <pre><code> and highlight line by line.
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
                 let lang = lang.trim();
+                let begin_html = format!("<pre lang=\"{lang}\"><code class=\"language-{lang}\">");
                 codeblock = Some(CodeBlock::new(lang.into()));
-                None
+                Some(Event::Html(begin_html.into()))
             }
             Event::End(TagEnd::CodeBlock) => {
                 if let Some(cb) = &codeblock {
                     let syntax = SYNTAX_SET
                         .find_syntax_by_extension(&cb.lang)
                         .unwrap_or(SYNTAX_SET.find_syntax_plain_text());
-                    let html = highlighted_html_for_string(
+                    let mut html = highlighted_html_for_string(
                         &cb.text,
                         &SYNTAX_SET,
                         syntax,
-                        &THEME_SET.themes["solarized-dark"],
+                        &THEME_SET.themes["base16-ocean.dark"],
                     )
                     .ok()?;
 
                     codeblock = None;
+
+                    html.push_str("</code></pre>\n");
                     Some(Event::Html(html.into()))
                 } else {
                     None
@@ -172,13 +175,16 @@ pub fn render_markdown(content: &str) -> Result<Document> {
             Event::Text(ref t) => {
                 if let Some(cb) = &mut codeblock {
                     cb.text.push_str(t);
+                    None
                 } else if let Some(h) = &mut current_heading {
                     h.text.push_str(t);
+                    Some(event)
+                } else {
+                    if !in_frontmatter {
+                        character_count += t.len();
+                    }
+                    Some(event)
                 }
-                if !in_frontmatter {
-                    character_count += t.len();
-                }
-                Some(event)
             }
             Event::Code(ref s)
             | Event::InlineMath(ref s)
@@ -367,6 +373,29 @@ consectetur velit. Maecenas at massa ante.
 
         let document = render_markdown(content)?;
         insta::assert_yaml_snapshot!(document);
+        Ok(())
+    }
+
+    #[test]
+    fn test_codeblock() -> Result<()> {
+        let content = r#"
+---
+title = "Test"
+tags = ["a", "b", "c"]
+---
+
+```py
+print("Hello World")
+if __name__ == "__main__":
+    print("yay")
+```        "#;
+
+        let document = render_markdown(content)?;
+        insta::assert_yaml_snapshot!(document, {
+            ".date" => get_date().unwrap().to_string(),
+            ".updated" => get_date().unwrap().to_string()
+        });
+
         Ok(())
     }
 }
