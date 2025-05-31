@@ -75,6 +75,7 @@ enum Summary {
     FinalElement,
 }
 
+/// Given a string of markdown, parse and return a `Document`.
 pub fn render_markdown(content: &str) -> Result<Document> {
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
