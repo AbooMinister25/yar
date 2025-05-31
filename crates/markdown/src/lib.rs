@@ -84,6 +84,7 @@ pub fn render_markdown(content: &str) -> Result<Document> {
     options.insert(Options::ENABLE_SMART_PUNCTUATION);
     options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
     options.insert(Options::ENABLE_MATH);
+    options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
 
     let frontmatter = parse_frontmatter(content)?;
 
@@ -291,6 +292,38 @@ The puzzle gives us an input that consists of rows of reports, each of which is 
 # Part 2
 
 hello world
+        "#;
+
+        let document = render_markdown(content)?;
+        insta::assert_yaml_snapshot!(document, {
+            ".date" => get_date().unwrap().to_string(),
+            ".updated" => get_date().unwrap().to_string()
+        });
+        Ok(())
+    }
+
+    #[test]
+    fn test_toc() -> Result<()> {
+        let content = r#"
+---
+title = "Test"
+tags = ["a", "b", "c"]
+---
+
+Hello World
+
+## Part 1
+
+Some Content
+
+## Part 2
+
+Some More Content
+
+## Part 3 {#part3}
+
+Even More Content
+
         "#;
 
         let document = render_markdown(content)?;

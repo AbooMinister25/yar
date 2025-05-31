@@ -1,0 +1,28 @@
+---
+source: crates/markdown/src/lib.rs
+expression: document
+---
+date: "2025-01-01 06:00:00 UTC"
+updated: "2025-01-01 06:00:00 UTC"
+content: "<p>Hello World</p>\n<h2>Part 1</h2>\n<p>Some Content</p>\n<h2>Part 2</h2>\n<p>Some More Content</p>\n<h2 id=\"part3\">Part 3</h2>\n<p>Even More Content</p>\n"
+toc:
+  - id: ~
+    text: Part 1
+  - id: ~
+    text: Part 2
+  - id: part3
+    text: Part 3
+summary: "<p>Hello World</p>\n<h2>Part 1</h2>\n<p>Some Content</p>\n<h2>Part 2</h2>\n<p>Some More Content</p>\n<h2 id=\"part3\">Part 3</h2>\n<p>Even More Content</p>\n"
+frontmatter:
+  title: Test
+  tags:
+    - a
+    - b
+    - c
+  template: ~
+  completed: ~
+  date: ~
+  updated: ~
+  series: ~
+  slug: ~
+  draft: false
