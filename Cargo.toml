@@ -11,12 +11,16 @@ color-eyre.workspace = true
 
 clap = { version = "4.5.38", features = ["derive"] }
 
+[dev-dependencies]
+insta.workspace = true
+
 [workspace]
 members = ["crates/*"]
 resolver = "3"
 
 [workspace.dependencies]
 color-eyre = "0.6"
+insta = { version = "1.43.1", features = ["yaml", "redactions"] }
 
 [workspace.package]
 edition = "2024"
@@ -27,3 +31,7 @@ missing-const-for-fn = "allow"
 
 [lints]
 workspace = true
+
+[profile.dev.package]
+insta.opt-level = 3
+similar.opt-level = 3
