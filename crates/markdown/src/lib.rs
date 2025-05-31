@@ -17,7 +17,6 @@ pub struct Frontmatter {
     pub title: String,
     pub tags: Vec<String>,
     pub template: Option<String>,
-    pub completed: Option<bool>,
     pub date: Option<String>,
     pub updated: Option<String>,
     pub series: Option<SeriesInfo>,
@@ -331,6 +330,42 @@ Even More Content
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
         });
+        Ok(())
+    }
+
+    #[test]
+    fn test_frontmatter() -> Result<()> {
+        let content = r#"
+---
+title = "Test"
+tags = ["a", "b", "c"]
+template = "foo.html"
+date = "2025-01-01T6:00:00"
+updated = "2025-03-12T8:00:00"
+slug = "some-slug"
+draft = true
+
+[series]
+part = 3
+---
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. 
+Suspendisse ut mattis felis. Mauris sed ex vitae est pharetra 
+scelerisque. Ut ut sem arcu. Morbi molestie dictum venenatis. 
+Quisque sit amet consequat libero. Cras id tellus diam. 
+
+Cras pulvinar tristique nisl vel porttitor. Fusce enim magna, porta 
+sed nisl non, dignissim ultrices massa. Sed ultrices tempus dolor sit 
+amet fringilla. Proin at mauris porta, efficitur magna sit amet, 
+rutrum elit. In efficitur vitae erat id scelerisque. Cras laoreet 
+elit eu neque condimentum auctor. Lorem ipsum dolor sit amet, 
+consectetur adipiscing elit. Vivamus nec auctor neque, at 
+consectetur velit. Maecenas at massa ante.
+
+        "#;
+
+        let document = render_markdown(content)?;
+        insta::assert_yaml_snapshot!(document);
         Ok(())
     }
 }

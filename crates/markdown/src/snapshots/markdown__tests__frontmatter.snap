@@ -1,0 +1,22 @@
+---
+source: crates/markdown/src/lib.rs
+expression: document
+---
+date: "2025-01-01T06:00:00Z"
+updated: "2025-03-12T08:00:00Z"
+content: "<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.\nSuspendisse ut mattis felis. Mauris sed ex vitae est pharetra\nscelerisque. Ut ut sem arcu. Morbi molestie dictum venenatis.\nQuisque sit amet consequat libero. Cras id tellus diam.</p>\n<p>Cras pulvinar tristique nisl vel porttitor. Fusce enim magna, porta\nsed nisl non, dignissim ultrices massa. Sed ultrices tempus dolor sit\namet fringilla. Proin at mauris porta, efficitur magna sit amet,\nrutrum elit. In efficitur vitae erat id scelerisque. Cras laoreet\nelit eu neque condimentum auctor. Lorem ipsum dolor sit amet,\nconsectetur adipiscing elit. Vivamus nec auctor neque, at\nconsectetur velit. Maecenas at massa ante.</p>\n"
+toc: []
+summary: "<p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.\nSuspendisse ut mattis felis. Mauris sed ex vitae est pharetra\nscelerisque. Ut ut sem arcu. Morbi molestie dictum venenatis.\nQuisque sit amet consequat libero. Cras id tellus diam.</p>\n"
+frontmatter:
+  title: Test
+  tags:
+    - a
+    - b
+    - c
+  template: foo.html
+  date: "2025-01-01T6:00:00"
+  updated: "2025-03-12T8:00:00"
+  series:
+    part: 3
+  slug: some-slug
+  draft: true
