@@ -75,160 +75,163 @@ enum Summary {
     FinalElement,
 }
 
-/// Given a string of markdown, parse and return a `Document`.
-pub fn render_markdown(content: &str) -> Result<Document> {
-    let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_FOOTNOTES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_SMART_PUNCTUATION);
-    options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
-    options.insert(Options::ENABLE_MATH);
-    options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+impl Document {
+    /// Given a string of markdown, parse and return a `Document`.
+    pub fn parse_from_string(content: &str) -> Result<Document> {
+        let mut options = Options::empty();
+        options.insert(Options::ENABLE_TABLES);
+        options.insert(Options::ENABLE_FOOTNOTES);
+        options.insert(Options::ENABLE_STRIKETHROUGH);
+        options.insert(Options::ENABLE_SMART_PUNCTUATION);
+        options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
+        options.insert(Options::ENABLE_MATH);
+        options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
 
-    let frontmatter = parse_frontmatter(content)?;
+        let frontmatter = parse_frontmatter(content)?;
 
-    let mut html_output = String::new();
-    let parser = Parser::new_ext(content, options);
+        let mut html_output = String::new();
+        let parser = Parser::new_ext(content, options);
 
-    let mut codeblock = None;
+        let mut codeblock = None;
 
-    let mut current_heading = None;
-    let mut headings = Vec::new();
+        let mut current_heading = None;
+        let mut headings = Vec::new();
 
-    let mut character_count = 0;
-    let mut summary_status = Summary::Incomplete;
-    let mut summary_events = Vec::new();
+        let mut character_count = 0;
+        let mut summary_status = Summary::Incomplete;
+        let mut summary_events = Vec::new();
 
-    let mut in_frontmatter = false;
+        let mut in_frontmatter = false;
 
-    let parser = parser.filter_map(|event| {
-        // If there are currently less than 150 characters of text that have been parsed, add the
-        // node to the summary. Additionally, make sure that the summary doesn't include unclosed tags and the like.
-        if character_count >= 150 && !matches!(summary_status, Summary::Complete) {
-            summary_status = Summary::FinalElement
-        }
+        let parser = parser.filter_map(|event| {
+            // If there are currently less than 150 characters of text that have been parsed, add the
+            // node to the summary. Additionally, make sure that the summary doesn't include unclosed tags and the like.
+            if character_count >= 150 && !matches!(summary_status, Summary::Complete) {
+                summary_status = Summary::FinalElement
+            }
 
-        match summary_status {
-            Summary::Incomplete => summary_events.push(event.clone()),
-            Summary::FinalElement => {
-                summary_events.push(event.clone());
-                if matches!(event, Event::End(_)) {
-                    summary_status = Summary::Complete
+            match summary_status {
+                Summary::Incomplete => summary_events.push(event.clone()),
+                Summary::FinalElement => {
+                    summary_events.push(event.clone());
+                    if matches!(event, Event::End(_)) {
+                        summary_status = Summary::Complete
+                    }
                 }
+                _ => (),
             }
-            _ => (),
-        }
 
-        match event {
-            // TODO: Emit <pre><code> and highlight line by line.
-            Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
-                let lang = lang.trim();
-                let begin_html = format!("<pre lang=\"{lang}\"><code class=\"language-{lang}\">");
-                codeblock = Some(CodeBlock::new(lang.into()));
-                Some(Event::Html(begin_html.into()))
-            }
-            Event::End(TagEnd::CodeBlock) => {
-                if let Some(cb) = &codeblock {
-                    let syntax = SYNTAX_SET
-                        .find_syntax_by_extension(&cb.lang)
-                        .unwrap_or(SYNTAX_SET.find_syntax_plain_text());
-                    let mut html = highlighted_html_for_string(
-                        &cb.text,
-                        &SYNTAX_SET,
-                        syntax,
-                        &THEME_SET.themes["base16-ocean.dark"],
-                    )
-                    .ok()?;
-
-                    codeblock = None;
-
-                    html.push_str("</code></pre>\n");
-                    Some(Event::Html(html.into()))
-                } else {
-                    None
+            match event {
+                // TODO: Emit <pre><code> and highlight line by line.
+                Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
+                    let lang = lang.trim();
+                    let begin_html =
+                        format!("<pre lang=\"{lang}\"><code class=\"language-{lang}\">");
+                    codeblock = Some(CodeBlock::new(lang.into()));
+                    Some(Event::Html(begin_html.into()))
                 }
-            }
-            Event::Start(Tag::Heading {
-                level: HeadingLevel::H2,
-                ref id,
-                ..
-            }) => {
-                current_heading = Some(TOCHeading::new(
-                    id.as_ref().map(|c| c.to_string()),
-                    "".to_string(),
-                ));
-                Some(event)
-            }
-            Event::End(TagEnd::Heading(HeadingLevel::H2)) => {
-                headings.push(current_heading.take().expect("Heading end before start?"));
-                Some(event)
-            }
-            Event::Start(Tag::MetadataBlock(_)) => {
-                in_frontmatter = true;
-                Some(event)
-            }
-            Event::End(TagEnd::MetadataBlock(_)) => {
-                in_frontmatter = false;
-                Some(event)
-            }
-            Event::Text(ref t) => {
-                if let Some(cb) = &mut codeblock {
-                    cb.text.push_str(t);
-                    None
-                } else if let Some(h) = &mut current_heading {
-                    h.text.push_str(t);
+                Event::End(TagEnd::CodeBlock) => {
+                    if let Some(cb) = &codeblock {
+                        let syntax = SYNTAX_SET
+                            .find_syntax_by_extension(&cb.lang)
+                            .unwrap_or(SYNTAX_SET.find_syntax_plain_text());
+                        let mut html = highlighted_html_for_string(
+                            &cb.text,
+                            &SYNTAX_SET,
+                            syntax,
+                            &THEME_SET.themes["base16-ocean.dark"],
+                        )
+                        .ok()?;
+
+                        codeblock = None;
+
+                        html.push_str("</code></pre>\n");
+                        Some(Event::Html(html.into()))
+                    } else {
+                        None
+                    }
+                }
+                Event::Start(Tag::Heading {
+                    level: HeadingLevel::H2,
+                    ref id,
+                    ..
+                }) => {
+                    current_heading = Some(TOCHeading::new(
+                        id.as_ref().map(|c| c.to_string()),
+                        "".to_string(),
+                    ));
                     Some(event)
-                } else {
-                    if !in_frontmatter {
-                        character_count += t.len();
+                }
+                Event::End(TagEnd::Heading(HeadingLevel::H2)) => {
+                    headings.push(current_heading.take().expect("Heading end before start?"));
+                    Some(event)
+                }
+                Event::Start(Tag::MetadataBlock(_)) => {
+                    in_frontmatter = true;
+                    Some(event)
+                }
+                Event::End(TagEnd::MetadataBlock(_)) => {
+                    in_frontmatter = false;
+                    Some(event)
+                }
+                Event::Text(ref t) => {
+                    if let Some(cb) = &mut codeblock {
+                        cb.text.push_str(t);
+                        None
+                    } else if let Some(h) = &mut current_heading {
+                        h.text.push_str(t);
+                        Some(event)
+                    } else {
+                        if !in_frontmatter {
+                            character_count += t.len();
+                        }
+                        Some(event)
+                    }
+                }
+                Event::Code(ref s)
+                | Event::InlineMath(ref s)
+                | Event::DisplayMath(ref s)
+                | Event::InlineHtml(ref s) => {
+                    if let Some(h) = &mut current_heading {
+                        h.text.push_str(s);
                     }
                     Some(event)
                 }
+                _ => Some(event),
             }
-            Event::Code(ref s)
-            | Event::InlineMath(ref s)
-            | Event::DisplayMath(ref s)
-            | Event::InlineHtml(ref s) => {
-                if let Some(h) = &mut current_heading {
-                    h.text.push_str(s);
-                }
-                Some(event)
-            }
-            _ => Some(event),
-        }
-    });
+        });
 
-    push_html(&mut html_output, parser);
+        push_html(&mut html_output, parser);
 
-    let mut summary = String::new();
-    push_html(&mut summary, summary_events.into_iter());
+        let mut summary = String::new();
+        push_html(&mut summary, summary_events.into_iter());
 
-    // Extract dates from frontmatter
-    let date = frontmatter.date.as_ref().map_or(
-        Ok::<DateTime<Utc>, color_eyre::Report>(Utc::now()),
-        |d| {
-            let parsed = d.parse::<NaiveDateTime>()?;
-            Ok(Utc.from_utc_datetime(&parsed))
-        },
-    )?;
+        // Extract dates from frontmatter
+        let date = frontmatter.date.as_ref().map_or(
+            Ok::<DateTime<Utc>, color_eyre::Report>(Utc::now()),
+            |d| {
+                let parsed = d.parse::<NaiveDateTime>()?;
+                Ok(Utc.from_utc_datetime(&parsed))
+            },
+        )?;
 
-    let updated = frontmatter.updated.as_ref().map_or(
-        Ok::<DateTime<Utc>, color_eyre::Report>(date),
-        |d| {
-            let parsed = d.parse::<NaiveDateTime>()?;
-            Ok(Utc.from_utc_datetime(&parsed))
-        },
-    )?;
+        let updated = frontmatter.updated.as_ref().map_or(
+            Ok::<DateTime<Utc>, color_eyre::Report>(date),
+            |d| {
+                let parsed = d.parse::<NaiveDateTime>()?;
+                Ok(Utc.from_utc_datetime(&parsed))
+            },
+        )?;
 
-    Ok(Document {
-        date,
-        updated,
-        content: html_output,
-        toc: headings,
-        summary,
-        frontmatter,
-    })
+        Ok(Document {
+            date,
+            updated,
+            content: html_output,
+            toc: headings,
+            summary,
+            frontmatter,
+        })
+    }
 }
 
 fn parse_frontmatter(content: &str) -> Result<Frontmatter> {
@@ -273,7 +276,7 @@ tags = ["a", "b", "c"]
 Hello World
         "#;
 
-        let document = render_markdown(content)?;
+        let document = Document::parse_from_string(content)?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
@@ -300,7 +303,7 @@ The puzzle gives us an input that consists of rows of reports, each of which is 
 hello world
         "#;
 
-        let document = render_markdown(content)?;
+        let document = Document::parse_from_string(content)?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
@@ -332,7 +335,7 @@ Even More Content
 
         "#;
 
-        let document = render_markdown(content)?;
+        let document = Document::parse_from_string(content)?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
@@ -371,7 +374,7 @@ consectetur velit. Maecenas at massa ante.
 
         "#;
 
-        let document = render_markdown(content)?;
+        let document = Document::parse_from_string(content)?;
         insta::assert_yaml_snapshot!(document);
         Ok(())
     }
@@ -390,7 +393,7 @@ if __name__ == "__main__":
     print("yay")
 ```        "#;
 
-        let document = render_markdown(content)?;
+        let document = Document::parse_from_string(content)?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
