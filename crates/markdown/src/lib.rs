@@ -41,6 +41,13 @@ impl TOCHeading {
     fn new(id: Option<String>, text: String) -> Self {
         Self { id, text }
     }
+
+    fn to_html(&self) -> String {
+        let id = self.id.as_ref().unwrap_or(&self.text);
+        let html = format!("<h2><a id=\"{id}\" href=\"{id}\">{}</a></h2>", self.text);
+
+        html
+    }
 }
 
 /// A parsed markdown document.
@@ -122,7 +129,7 @@ impl Document {
             }
 
             match event {
-                // TODO: Emit <pre><code> and highlight line by line.
+                // TODO: Highlight line by line.
                 Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
                     let lang = lang.trim();
                     let begin_html =
@@ -160,11 +167,14 @@ impl Document {
                         id.as_ref().map(|c| c.to_string()),
                         "".to_string(),
                     ));
-                    Some(event)
+                    None
                 }
                 Event::End(TagEnd::Heading(HeadingLevel::H2)) => {
-                    headings.push(current_heading.take().expect("Heading end before start?"));
-                    Some(event)
+                    let heading = current_heading.take().expect("Heading end before start?");
+                    let html = heading.to_html();
+                    headings.push(heading);
+
+                    Some(Event::Html(html.into()))
                 }
                 Event::Start(Tag::MetadataBlock(_)) => {
                     in_frontmatter = true;
@@ -180,7 +190,7 @@ impl Document {
                         None
                     } else if let Some(h) = &mut current_heading {
                         h.text.push_str(t);
-                        Some(event)
+                        None
                     } else {
                         if !in_frontmatter {
                             character_count += t.len();
@@ -194,6 +204,7 @@ impl Document {
                 | Event::InlineHtml(ref s) => {
                     if let Some(h) = &mut current_heading {
                         h.text.push_str(s);
+                        return None;
                     }
                     Some(event)
                 }

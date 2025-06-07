@@ -4,7 +4,7 @@ expression: document
 ---
 date: "2025-01-01 06:00:00 UTC"
 updated: "2025-01-01 06:00:00 UTC"
-content: "<p>Hello World</p>\n<h2>Part 1</h2>\n<p>Some Content</p>\n<h2>Part 2</h2>\n<p>Some More Content</p>\n<h2 id=\"part3\">Part 3</h2>\n<p>Even More Content</p>\n"
+content: "<p>Hello World</p>\n<h2><a id=\"Part 1\" href=\"Part 1\">Part 1</a></h2>\n<p>Some Content</p>\n<h2><a id=\"Part 2\" href=\"Part 2\">Part 2</a></h2>\n<p>Some More Content</p>\n<h2><a id=\"part3\" href=\"part3\">Part 3</a></h2>\n<p>Even More Content</p>\n"
 toc:
   - id: ~
     text: Part 1
