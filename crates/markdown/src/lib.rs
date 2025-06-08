@@ -33,8 +33,8 @@ pub struct SeriesInfo {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TOCHeading {
-    id: Option<String>,
-    text: String,
+    pub id: Option<String>,
+    pub text: String,
 }
 
 impl TOCHeading {
@@ -58,7 +58,7 @@ pub struct Document {
     pub content: String,
     pub toc: Vec<TOCHeading>,
     pub summary: String,
-    frontmatter: Frontmatter,
+    pub frontmatter: Frontmatter,
 }
 
 #[derive(Debug)]
