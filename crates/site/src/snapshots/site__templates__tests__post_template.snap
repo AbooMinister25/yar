@@ -1,0 +1,5 @@
+---
+source: crates/site/src/templates.rs
+expression: post.render()?
+---
+"<!DOCTYPE html>\n<html lang=\"en\">\n\n<head>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <meta charset=\"utf-8\" />\n    <meta name=\"author\" content=\"Rayyan Cyclegar\" />\n    \n<title> Test </title>\n<meta name=\"og:title\" property=\"og:title\" content=\"Test\" />\n<meta name=\"twitter:title\" content=\"Test\" />\n<meta name=\"description\" content=\"&#60;p&#62;Hello World&#60;/p&#62;\n\" />\n<meta name=\"og:description\" property=\"og:description\" content=\"&#60;p&#62;Hello World&#60;/p&#62;\n\" />\n<meta name=\"twitter:description\" content=\"&#60;p&#62;Hello World&#60;/p&#62;\n\" />\n\n</head>\n\n<body>\n    <div>\n        \n<div>\n    <h1>Test</h1>\n    <p>a, b, c</p>\n    <p>2025-01-01 06:00:00 UTC</p>\n\n    \n\n    <p>Hello World</p>\n\n</div>\n\n\n    </div>\n</body>\n\n</html>"

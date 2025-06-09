@@ -4,10 +4,19 @@ edition.workspace = true
 
 [dependencies]
 color-eyre.workspace = true
+
+markdown = { path = "../markdown" }
+
 ignore = "0.4.23"
-rusqlite = "0.35.0"
+rusqlite = { version = "0.35.0", features = ["bundled"] }
 seahash = "4.1.0"
 serde = { version = "1.0.219", features = ["derive"] }
+askama = "0.14.0"
+chrono = { version = "0.4.41" }
+
+
+[dev-dependencies]
+insta = { workspace = true, features = ["yaml"] }
 
 [lints]
 workspace = true

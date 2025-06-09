@@ -1,6 +1,7 @@
 mod config;
 mod entry;
 mod sql;
+mod templates;
 
 use color_eyre::Result;
 use config::Config;
