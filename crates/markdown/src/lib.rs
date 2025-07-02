@@ -28,7 +28,7 @@ pub struct Frontmatter {
 /// Details about a series that a post belongs to, if any.
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
 pub struct SeriesInfo {
-    pub part: Option<i32>,
+    pub part: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]

@@ -9,6 +9,8 @@ edition.workspace = true
 [dependencies]
 color-eyre.workspace = true
 
+site = { path = "crates/site" }
+
 clap = { version = "4.5.38", features = ["derive"] }
 
 [dev-dependencies]
