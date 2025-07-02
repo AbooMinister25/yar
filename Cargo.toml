@@ -12,6 +12,8 @@ color-eyre.workspace = true
 site = { path = "crates/site" }
 
 clap = { version = "4.5.38", features = ["derive"] }
+tempfile = "3.20.0"
+figment = { version = "0.10.19", features = ["toml"] }
 
 [dev-dependencies]
 insta.workspace = true

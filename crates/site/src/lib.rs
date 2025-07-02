@@ -19,6 +19,7 @@ use crate::{
     page::Page,
     sql::{get_pages, insert_or_update_asset, insert_or_update_page, insert_or_update_static_file},
     static_file::StaticFile,
+    utils::fs::ensure_directory,
 };
 
 /// A site to be built.
@@ -98,6 +99,8 @@ impl<'a> Site<'a> {
 
     /// Renders the site to disk.
     pub fn render(&self) -> Result<()> {
+        ensure_directory(&self.config.output_path)?;
+
         let combined_index = self.index.iter().chain(&self.pages).collect::<Vec<&Page>>();
         for page in &self.pages {
             page.render(&combined_index, &self.environment)?;
