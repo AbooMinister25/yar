@@ -34,7 +34,7 @@ fn main() -> Result<()> {
         site.commit_to_db()?;
         let elapsed = now.elapsed();
 
-        println!("Built site in {elapsed:.2?} seconds");
+        println!("Built site in {elapsed:.2?}");
     }
 
     Ok(())

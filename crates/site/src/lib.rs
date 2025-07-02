@@ -36,6 +36,7 @@ impl<'a> Site<'a> {
     /// Create a new site.
     pub fn new(conn: Connection, config: Config) -> Result<Self> {
         let entries = discover_entries(&config.root, &conn)?;
+        println!("Discovered {} entries to build", entries.len());
 
         let mut pages = Vec::new();
         let mut assets = Vec::new();

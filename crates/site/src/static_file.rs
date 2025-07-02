@@ -15,7 +15,7 @@ pub struct StaticFile {
     pub source_hash: String,
     pub out_path: PathBuf,
     pub permalink: String,
-    pub content: String,
+    pub content: Vec<u8>,
 }
 
 impl StaticFile {
@@ -28,7 +28,7 @@ impl StaticFile {
     ) -> Result<Self> {
         let out_path = out_path(&path, &out_dir, root);
         let permalink = build_permalink(&out_path, url)?;
-        let content = fs::read_to_string(&path)?;
+        let content = fs::read(&path)?;
 
         Ok(Self {
             path: path.as_ref().to_owned(),

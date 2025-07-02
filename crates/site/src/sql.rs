@@ -59,10 +59,10 @@ pub fn setup_sql() -> Result<Connection> {
 
     conn.execute(
         "
-        CREATE TABLE IF NOT EXISTS staticfile (
+        CREATE TABLE IF NOT EXISTS static_files (
             out_path VARCHAR NOT NULL PRIMARY KEY,
             permalink TEXT NOT NULL,
-            content TEXT NOT NULL,
+            content BLOB NOT NULL,
             entry VARCHAR NOT NULL,
             FOREIGN KEY(entry) REFERENCES entries(path)
         )
