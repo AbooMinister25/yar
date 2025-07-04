@@ -11,6 +11,7 @@ use std::ffi::OsStr;
 use color_eyre::Result;
 use config::Config;
 use entry::discover_entries;
+use markdown::MarkdownRenderer;
 use minijinja::{Environment, path_loader};
 use rusqlite::Connection;
 
@@ -31,6 +32,7 @@ pub struct Site<'a> {
     static_files: Vec<StaticFile>,
     index: Vec<Page>,
     environment: Environment<'a>,
+    markdown_renderer: MarkdownRenderer,
 }
 
 impl<'a> Site<'a> {
@@ -38,6 +40,9 @@ impl<'a> Site<'a> {
     pub fn new(conn: Connection, config: Config) -> Result<Self> {
         let entries = discover_entries(&config.root, &conn)?;
         println!("Discovered {} entries to build", entries.len());
+
+        let markdown_renderer =
+            MarkdownRenderer::new(config.theme_path.as_ref(), Some(&config.theme))?;
 
         let mut pages = Vec::new();
         let mut assets = Vec::new();
@@ -53,6 +58,7 @@ impl<'a> Site<'a> {
                         &config.output_path,
                         &config.root,
                         &config.url,
+                        &markdown_renderer,
                     )?;
                     pages.push(page);
                 }
@@ -94,6 +100,7 @@ impl<'a> Site<'a> {
             static_files,
             index,
             environment: env,
+            markdown_renderer,
         })
     }
 

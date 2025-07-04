@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use color_eyre::Result;
 use color_eyre::eyre::ContextCompat;
-use markdown::Document;
+use markdown::{Document, MarkdownRenderer};
 use minijinja::{Environment, context};
 use serde::{Deserialize, Serialize};
 
@@ -29,8 +29,9 @@ impl Page {
         out_dir: T,
         root: Z,
         url: &str,
+        markdown_renderer: &MarkdownRenderer,
     ) -> Result<Self> {
-        let document = Document::parse_from_string(&content)?;
+        let document = markdown_renderer.parse_from_string(&content)?;
         let out_path = out_path(
             &path,
             out_dir,

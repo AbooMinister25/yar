@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::path::Path;
 
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use color_eyre::Result;
@@ -6,10 +6,11 @@ use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd, html::push_html,
 };
 use serde::{Deserialize, Serialize};
-use syntect::{highlighting::ThemeSet, html::highlighted_html_for_string, parsing::SyntaxSet};
-
-static SYNTAX_SET: LazyLock<SyntaxSet> = LazyLock::new(SyntaxSet::load_defaults_newlines);
-static THEME_SET: LazyLock<ThemeSet> = LazyLock::new(ThemeSet::load_defaults);
+use syntect::{
+    highlighting::{Theme, ThemeSet},
+    html::highlighted_html_for_string,
+    parsing::SyntaxSet,
+};
 
 /// The frontmatter metadata for a parsed markdown document.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -82,9 +83,25 @@ enum Summary {
     FinalElement,
 }
 
-impl Document {
-    /// Given a string of markdown, parse and return a `Document`.
-    pub fn parse_from_string(content: &str) -> Result<Document> {
+/// Used to parse and format a markdown document.
+///
+/// Stores all the required context.
+#[derive(Debug)]
+pub struct MarkdownRenderer {
+    syntax_set: SyntaxSet,
+    theme: Theme,
+    options: Options,
+}
+
+impl MarkdownRenderer {
+    pub fn new<P: AsRef<Path>>(theme_path: Option<P>, theme: Option<&str>) -> Result<Self> {
+        let syntax_set = SyntaxSet::load_defaults_newlines();
+        let theme_set = theme_path.map_or_else(
+            || Ok(ThemeSet::load_defaults()),
+            |p| ThemeSet::load_from_folder(p),
+        )?;
+        let theme = theme_set.themes[theme.unwrap_or("base16-ocean.dark")].clone();
+
         let mut options = Options::empty();
         options.insert(Options::ENABLE_TABLES);
         options.insert(Options::ENABLE_FOOTNOTES);
@@ -94,10 +111,18 @@ impl Document {
         options.insert(Options::ENABLE_MATH);
         options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
 
+        Ok(Self {
+            syntax_set,
+            theme,
+            options,
+        })
+    }
+
+    pub fn parse_from_string(&self, content: &str) -> Result<Document> {
         let frontmatter = parse_frontmatter(content)?;
 
         let mut html_output = String::new();
-        let parser = Parser::new_ext(content, options);
+        let parser = Parser::new_ext(content, self.options);
 
         let mut codeblock = None;
 
@@ -139,14 +164,15 @@ impl Document {
                 }
                 Event::End(TagEnd::CodeBlock) => {
                     if let Some(cb) = &codeblock {
-                        let syntax = SYNTAX_SET
+                        let syntax = self
+                            .syntax_set
                             .find_syntax_by_extension(&cb.lang)
-                            .unwrap_or(SYNTAX_SET.find_syntax_plain_text());
+                            .unwrap_or(self.syntax_set.find_syntax_plain_text());
                         let mut html = highlighted_html_for_string(
                             &cb.text,
-                            &SYNTAX_SET,
+                            &self.syntax_set,
                             syntax,
-                            &THEME_SET.themes["base16-ocean.dark"],
+                            &self.theme,
                         )
                         .ok()?;
 
@@ -287,7 +313,7 @@ tags = ["a", "b", "c"]
 Hello World
         "#;
 
-        let document = Document::parse_from_string(content)?;
+        let document = MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content)?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
@@ -314,7 +340,7 @@ The puzzle gives us an input that consists of rows of reports, each of which is 
 hello world
         "#;
 
-        let document = Document::parse_from_string(content)?;
+        let document = MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content)?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
@@ -346,7 +372,7 @@ Even More Content
 
         "#;
 
-        let document = Document::parse_from_string(content)?;
+        let document = MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content)?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
@@ -385,7 +411,7 @@ consectetur velit. Maecenas at massa ante.
 
         "#;
 
-        let document = Document::parse_from_string(content)?;
+        let document = MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content)?;
         insta::assert_yaml_snapshot!(document);
         Ok(())
     }
@@ -404,7 +430,7 @@ if __name__ == "__main__":
     print("yay")
 ```        "#;
 
-        let document = Document::parse_from_string(content)?;
+        let document = MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content)?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()

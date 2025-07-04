@@ -10,6 +10,7 @@ pub struct Config {
     pub output_path: PathBuf,
     pub development: bool,
     pub theme: String,
+    pub theme_path: Option<PathBuf>,
 }
 
 impl Default for Config {
@@ -19,7 +20,8 @@ impl Default for Config {
             root: Path::new("site/").to_owned(),
             output_path: Path::new("public/").to_owned(),
             development: false,
-            theme: String::from("Catpuccin-frappe"),
+            theme: String::from("base16-ocean.dark"),
+            theme_path: None,
         }
     }
 }
