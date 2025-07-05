@@ -44,6 +44,9 @@ impl<'a> Site<'a> {
         let markdown_renderer =
             MarkdownRenderer::new(config.theme_path.as_ref(), Some(&config.theme))?;
 
+        let mut env = Environment::new();
+        env.set_loader(path_loader(&config.root.join("templates")));
+
         let mut pages = Vec::new();
         let mut assets = Vec::new();
         let mut static_files = Vec::new();
@@ -59,6 +62,7 @@ impl<'a> Site<'a> {
                         &config.root,
                         &config.url,
                         &markdown_renderer,
+                        &env,
                     )?;
                     pages.push(page);
                 }
@@ -88,9 +92,6 @@ impl<'a> Site<'a> {
 
         // Get all of the pages in the database save from the ones we are building/rebuilding right now.
         let index = get_pages(&conn, pages.iter().map(|p| p.path.as_path()).collect())?;
-
-        let mut env = Environment::new();
-        env.set_loader(path_loader(&config.root.join("templates")));
 
         Ok(Self {
             conn,

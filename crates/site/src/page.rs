@@ -30,8 +30,9 @@ impl Page {
         root: Z,
         url: &str,
         markdown_renderer: &MarkdownRenderer,
+        env: &Environment,
     ) -> Result<Self> {
-        let document = markdown_renderer.parse_from_string(&content)?;
+        let document = markdown_renderer.parse_from_string(&content, env)?;
         let out_path = out_path(
             &path,
             out_dir,

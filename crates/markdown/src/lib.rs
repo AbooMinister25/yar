@@ -1,7 +1,10 @@
+mod shortcodes;
+
 use std::path::Path;
 
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use color_eyre::Result;
+use minijinja::Environment;
 use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd, html::push_html,
 };
@@ -11,6 +14,8 @@ use syntect::{
     html::highlighted_html_for_string,
     parsing::SyntaxSet,
 };
+
+use crate::shortcodes::evaluate_all_shortcodes;
 
 /// The frontmatter metadata for a parsed markdown document.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -118,7 +123,8 @@ impl MarkdownRenderer {
         })
     }
 
-    pub fn parse_from_string(&self, content: &str) -> Result<Document> {
+    /// Parse markdown and create a `Document` form a given string.
+    pub fn parse_from_string(&self, content: &str, env: &Environment) -> Result<Document> {
         let frontmatter = parse_frontmatter(content)?;
 
         let mut html_output = String::new();
@@ -211,11 +217,17 @@ impl MarkdownRenderer {
                     Some(event)
                 }
                 Event::Text(ref t) => {
+                    let text = if t.contains("{{!") {
+                        evaluate_all_shortcodes(t, &env, self).ok()?
+                    } else {
+                        t.to_string()
+                    };
+
                     if let Some(cb) = &mut codeblock {
-                        cb.text.push_str(t);
+                        cb.text.push_str(&text);
                         None
                     } else if let Some(h) = &mut current_heading {
-                        h.text.push_str(t);
+                        h.text.push_str(&text);
                         None
                     } else {
                         if !in_frontmatter {
@@ -269,6 +281,14 @@ impl MarkdownRenderer {
             frontmatter,
         })
     }
+
+    /// Render a one-off string to markdown. Doesn't create a `Document`.
+    pub fn render_one_off(&self, content: &str) -> String {
+        let mut html_output = String::new();
+        let parser = Parser::new_ext(content, self.options);
+        push_html(&mut html_output, parser);
+        html_output
+    }
 }
 
 fn parse_frontmatter(content: &str) -> Result<Frontmatter> {
@@ -313,7 +333,8 @@ tags = ["a", "b", "c"]
 Hello World
         "#;
 
-        let document = MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content)?;
+        let document = MarkdownRenderer::new::<&str>(None, None)?
+            .parse_from_string(content, &Environment::empty())?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
@@ -340,7 +361,8 @@ The puzzle gives us an input that consists of rows of reports, each of which is 
 hello world
         "#;
 
-        let document = MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content)?;
+        let document = MarkdownRenderer::new::<&str>(None, None)?
+            .parse_from_string(content, &Environment::empty())?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
@@ -372,7 +394,8 @@ Even More Content
 
         "#;
 
-        let document = MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content)?;
+        let document = MarkdownRenderer::new::<&str>(None, None)?
+            .parse_from_string(content, &Environment::empty())?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
@@ -411,7 +434,8 @@ consectetur velit. Maecenas at massa ante.
 
         "#;
 
-        let document = MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content)?;
+        let document = MarkdownRenderer::new::<&str>(None, None)?
+            .parse_from_string(content, &Environment::empty())?;
         insta::assert_yaml_snapshot!(document);
         Ok(())
     }
@@ -430,7 +454,8 @@ if __name__ == "__main__":
     print("yay")
 ```        "#;
 
-        let document = MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content)?;
+        let document = MarkdownRenderer::new::<&str>(None, None)?
+            .parse_from_string(content, &Environment::empty())?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()
