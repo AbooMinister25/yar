@@ -22,6 +22,7 @@ pub struct Page {
 }
 
 impl Page {
+    #[allow(clippy::too_many_arguments)]
     pub fn new<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
         path: P,
         content: String,

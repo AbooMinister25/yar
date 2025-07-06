@@ -1,8 +1,9 @@
-mod asset;
 pub mod config;
+pub mod sql;
+
+mod asset;
 mod entry;
 mod page;
-pub mod sql;
 mod static_file;
 mod utils;
 
@@ -12,7 +13,7 @@ use color_eyre::Result;
 use config::Config;
 use entry::discover_entries;
 use markdown::MarkdownRenderer;
-use minijinja::{Environment, path_loader};
+use minijinja::{Environment, context, path_loader};
 use rusqlite::Connection;
 
 use crate::{
@@ -46,6 +47,15 @@ impl<'a> Site<'a> {
 
         let mut env = Environment::new();
         env.set_loader(path_loader(&config.root.join("templates")));
+        env.add_global(
+            "site",
+            context! { site => context!{
+                url => config.url,
+                author => config.author,
+                title => config.title,
+                description => config.description,
+            }},
+        );
 
         let mut pages = Vec::new();
         let mut assets = Vec::new();
