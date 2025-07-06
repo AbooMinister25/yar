@@ -218,11 +218,9 @@ impl MarkdownRenderer {
                         }
 
                         current_shortcode.push_str(t);
-                        println!("{current_shortcode}");
                         in_shortcode = false;
                         let evaluated = evaluate_all_shortcodes(&current_shortcode, env, self)
                             .expect("Error while parsing shortcodes.");
-                        println!("{evaluated}");
                         current_shortcode.clear();
 
                         Some(Event::Html(evaluated.into()))
