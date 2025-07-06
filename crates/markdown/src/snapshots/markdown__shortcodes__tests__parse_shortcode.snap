@@ -1,0 +1,12 @@
+---
+source: crates/markdown/src/shortcodes.rs
+expression: items.1
+---
+- Text: "\n# Hello World\n\nTesting Content\n\n**hi**\n\n"
+- Shortcode:
+    name: test
+    arguments:
+      a: 1
+      b: 2
+    body: "hello world\n"
+- Text: "\n\nmore text\n        "

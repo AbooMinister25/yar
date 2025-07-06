@@ -6,7 +6,7 @@ use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use color_eyre::Result;
 use minijinja::Environment;
 use pulldown_cmark::{
-    CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd, html::push_html,
+    CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd, html::push_html,
 };
 use serde::{Deserialize, Serialize};
 use syntect::{
@@ -111,7 +111,6 @@ impl MarkdownRenderer {
         options.insert(Options::ENABLE_TABLES);
         options.insert(Options::ENABLE_FOOTNOTES);
         options.insert(Options::ENABLE_STRIKETHROUGH);
-        options.insert(Options::ENABLE_SMART_PUNCTUATION);
         options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
         options.insert(Options::ENABLE_MATH);
         options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
@@ -141,25 +140,17 @@ impl MarkdownRenderer {
 
         let mut in_frontmatter = false;
 
-        let parser = parser.filter_map(|event| {
+        let mut in_shortcode = false;
+        let mut current_shortcode = String::new();
+
+        let parser = parser.filter_map(|event| -> Option<Event<'_>> {
             // If there are currently less than 150 characters of text that have been parsed, add the
             // node to the summary. Additionally, make sure that the summary doesn't include unclosed tags and the like.
             if character_count >= 150 && !matches!(summary_status, Summary::Complete) {
                 summary_status = Summary::FinalElement
             }
 
-            match summary_status {
-                Summary::Incomplete => summary_events.push(event.clone()),
-                Summary::FinalElement => {
-                    summary_events.push(event.clone());
-                    if matches!(event, Event::End(_)) {
-                        summary_status = Summary::Complete
-                    }
-                }
-                _ => (),
-            }
-
-            match event {
+            let e = match event {
                 // TODO: Highlight line by line.
                 Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(lang))) => {
                     let lang = lang.trim();
@@ -217,23 +208,51 @@ impl MarkdownRenderer {
                     Some(event)
                 }
                 Event::Text(ref t) => {
-                    let text = if t.contains("{{!") {
-                        evaluate_all_shortcodes(t, &env, self).ok()?
+                    if t.contains("{{!") && !t.contains("{{! end !}}") {
+                        in_shortcode = true;
+                    }
+
+                    let shortcode_event = if t.contains("{{! end !}}") {
+                        if !in_shortcode {
+                            panic!("Stray shortcode closing tag.")
+                        }
+
+                        current_shortcode.push_str(t);
+                        println!("{current_shortcode}");
+                        in_shortcode = false;
+                        let evaluated = evaluate_all_shortcodes(&current_shortcode, env, self)
+                            .expect("Error while parsing shortcodes.");
+                        println!("{evaluated}");
+                        current_shortcode.clear();
+
+                        Some(Event::Html(evaluated.into()))
                     } else {
-                        t.to_string()
+                        None
                     };
 
-                    if let Some(cb) = &mut codeblock {
-                        cb.text.push_str(&text);
-                        None
-                    } else if let Some(h) = &mut current_heading {
-                        h.text.push_str(&text);
-                        None
+                    let text = if let Some(Event::Html(ref html)) = shortcode_event {
+                        html
                     } else {
-                        if !in_frontmatter {
-                            character_count += t.len();
+                        t
+                    };
+
+                    if !in_shortcode {
+                        if let Some(cb) = &mut codeblock {
+                            cb.text.push_str(text);
+                            None
+                        } else if let Some(h) = &mut current_heading {
+                            h.text.push_str(text);
+                            None
+                        } else {
+                            if !in_frontmatter {
+                                character_count += text.len();
+                            }
+
+                            Some(shortcode_event.unwrap_or(event))
                         }
-                        Some(event)
+                    } else {
+                        current_shortcode.push_str(text);
+                        None
                     }
                 }
                 Event::Code(ref s)
@@ -247,13 +266,26 @@ impl MarkdownRenderer {
                     Some(event)
                 }
                 _ => Some(event),
+            };
+
+            match summary_status {
+                Summary::Incomplete => summary_events.push(e.clone()),
+                Summary::FinalElement => {
+                    summary_events.push(e.clone());
+                    if matches!(e, Some(Event::End(_))) {
+                        summary_status = Summary::Complete
+                    }
+                }
+                _ => (),
             }
+
+            e
         });
 
         push_html(&mut html_output, parser);
 
         let mut summary = String::new();
-        push_html(&mut summary, summary_events.into_iter());
+        push_html(&mut summary, summary_events.into_iter().flatten());
 
         // Extract dates from frontmatter
         let date = frontmatter.date.as_ref().map_or(
@@ -456,6 +488,53 @@ if __name__ == "__main__":
 
         let document = MarkdownRenderer::new::<&str>(None, None)?
             .parse_from_string(content, &Environment::empty())?;
+        insta::assert_yaml_snapshot!(document, {
+            ".date" => get_date().unwrap().to_string(),
+            ".updated" => get_date().unwrap().to_string()
+        });
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_with_shortcode() -> Result<()> {
+        let content = r#"
+---
+title = "Test"
+tags = ["a", "b", "c"]
+---
+
+# Hello World
+
+{{! note !}}
+this is a note!
+{{! end !}}
+
+This is some more text.
+
+{{! fancy(title="testing") !}}
+this is a note!
+{{! end !}}
+       "#;
+
+        let note_str = r#"
+<div class="note">
+{{ body }}
+</div>
+        "#;
+        let fancy_str = r#"
+<div class="fancy">
+<h1> {{ arguments.title }} </h1>
+{{ body }}
+</div>
+        "#;
+
+        let mut env = Environment::new();
+        env.add_template("note.html", note_str)?;
+        env.add_template("fancy.html", fancy_str)?;
+
+        let document =
+            MarkdownRenderer::new::<&str>(None, None)?.parse_from_string(content, &env)?;
         insta::assert_yaml_snapshot!(document, {
             ".date" => get_date().unwrap().to_string(),
             ".updated" => get_date().unwrap().to_string()

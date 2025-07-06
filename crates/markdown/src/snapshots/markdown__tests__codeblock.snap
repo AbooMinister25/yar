@@ -6,7 +6,7 @@ date: "2025-01-01 06:00:00 UTC"
 updated: "2025-01-01 06:00:00 UTC"
 content: "<pre lang=\"py\"><code class=\"language-py\"><pre style=\"background-color:#2b303b;\">\n<span style=\"color:#96b5b4;\">print</span><span style=\"color:#c0c5ce;\">(&quot;</span><span style=\"color:#a3be8c;\">Hello World</span><span style=\"color:#c0c5ce;\">&quot;)\n</span><span style=\"color:#b48ead;\">if </span><span style=\"color:#c0c5ce;\">__name__ == &quot;</span><span style=\"color:#a3be8c;\">__main__</span><span style=\"color:#c0c5ce;\">&quot;:\n</span><span style=\"color:#c0c5ce;\">    </span><span style=\"color:#96b5b4;\">print</span><span style=\"color:#c0c5ce;\">(&quot;</span><span style=\"color:#a3be8c;\">yay</span><span style=\"color:#c0c5ce;\">&quot;)\n</span></pre>\n</code></pre>\n"
 toc: []
-summary: "<pre><code class=\"language-py\">print(\"Hello World\")\nif __name__ == \"__main__\":\n    print(\"yay\")\n</code></pre>\n"
+summary: "<pre lang=\"py\"><code class=\"language-py\"><pre style=\"background-color:#2b303b;\">\n<span style=\"color:#96b5b4;\">print</span><span style=\"color:#c0c5ce;\">(&quot;</span><span style=\"color:#a3be8c;\">Hello World</span><span style=\"color:#c0c5ce;\">&quot;)\n</span><span style=\"color:#b48ead;\">if </span><span style=\"color:#c0c5ce;\">__name__ == &quot;</span><span style=\"color:#a3be8c;\">__main__</span><span style=\"color:#c0c5ce;\">&quot;:\n</span><span style=\"color:#c0c5ce;\">    </span><span style=\"color:#96b5b4;\">print</span><span style=\"color:#c0c5ce;\">(&quot;</span><span style=\"color:#a3be8c;\">yay</span><span style=\"color:#c0c5ce;\">&quot;)\n</span></pre>\n</code></pre>\n"
 frontmatter:
   title: Test
   tags:

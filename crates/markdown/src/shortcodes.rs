@@ -16,13 +16,13 @@ use serde::Serialize;
 
 use crate::MarkdownRenderer;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub enum Item {
     Text(String),
     Shortcode(Shortcode),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Serialize)]
 pub struct Shortcode {
     pub name: String,
     pub arguments: HashMap<String, Value>,
@@ -174,4 +174,90 @@ where
     F: Parser<&'a str, O, E>,
 {
     delimited(multispace0, inner, multispace0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_shortcode() -> Result<()> {
+        let test_input = r#"
+# Hello World
+
+Testing Content
+
+**hi**
+
+{{! test(a=1, b=2) !}}
+hello world
+{{! end !}}
+
+more text
+        "#;
+
+        let items = parse(test_input)?;
+        insta::with_settings!({sort_maps => true}, {
+            insta::assert_yaml_snapshot!(items.1);
+        });
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_evaluate_shortcode() -> Result<()> {
+        let test_input = r#"
+# Hello World
+
+{{! note !}}
+this is a note!
+{{! end !}}
+
+more text
+        "#;
+
+        let template_str = r#"
+<div class="note">
+{{ body }}
+</div>
+        "#;
+
+        let markdown_renderer = MarkdownRenderer::new::<&str>(None, None)?;
+        let mut env = Environment::new();
+        env.add_template("note.html", template_str)?;
+
+        let evaluated = evaluate_all_shortcodes(test_input, &env, &markdown_renderer)?;
+        insta::assert_yaml_snapshot!(evaluated);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_evaluate_shortcode_arguments() -> Result<()> {
+        let test_input = r#"
+# Hello World
+
+{{! note(title="testing") !}}
+this is a note!
+{{! end !}}
+
+more text
+        "#;
+
+        let template_str = r#"
+<div class="note">
+<h1> {{ arguments.title }} </h1>
+{{ body }}
+</div>
+        "#;
+
+        let markdown_renderer = MarkdownRenderer::new::<&str>(None, None)?;
+        let mut env = Environment::new();
+        env.add_template("note.html", template_str)?;
+
+        let evaluated = evaluate_all_shortcodes(test_input, &env, &markdown_renderer)?;
+        insta::assert_yaml_snapshot!(evaluated);
+
+        Ok(())
+    }
 }

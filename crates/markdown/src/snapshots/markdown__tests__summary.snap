@@ -4,9 +4,9 @@ expression: document
 ---
 date: "2025-01-01 06:00:00 UTC"
 updated: "2025-01-01 06:00:00 UTC"
-content: "<p>Day 2 was pretty straightforward, and there isn’t all that much I want to say about it, so I’ll get straight to the problem.</p>\n<h1>Part 1</h1>\n<p>The puzzle gives us an input that consists of rows of reports, each of which is made up of a list of levels, which are just numbers.</p>\n<h1>Part 2</h1>\n<p>hello world</p>\n"
+content: "<p>Day 2 was pretty straightforward, and there isn't all that much I want to say about it, so I'll get straight to the problem.</p>\n<h1>Part 1</h1>\n<p>The puzzle gives us an input that consists of rows of reports, each of which is made up of a list of levels, which are just numbers.</p>\n<h1>Part 2</h1>\n<p>hello world</p>\n"
 toc: []
-summary: "<p>Day 2 was pretty straightforward, and there isn’t all that much I want to say about it, so I’ll get straight to the problem.</p>\n<h1>Part 1</h1>\n<p>The puzzle gives us an input that consists of rows of reports, each of which is made up of a list of levels, which are just numbers.</p>\n"
+summary: "<p>Day 2 was pretty straightforward, and there isn't all that much I want to say about it, so I'll get straight to the problem.</p>\n<h1>Part 1</h1>\n<p>The puzzle gives us an input that consists of rows of reports, each of which is made up of a list of levels, which are just numbers.</p>\n"
 frontmatter:
   title: Test
   tags:
