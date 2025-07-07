@@ -14,7 +14,7 @@ use color_eyre::Result;
 use config::Config;
 use entry::discover_entries;
 use markdown::MarkdownRenderer;
-use minijinja::{Environment, context, path_loader};
+use minijinja::Environment;
 use rusqlite::Connection;
 
 use crate::{
