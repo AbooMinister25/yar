@@ -1,7 +1,9 @@
+mod functions;
+
 use color_eyre::Result;
 use minijinja::{Environment, context, path_loader};
 
-use crate::config::Config;
+use crate::{config::Config, templates::functions::pages_in_section};
 
 const DEFAULT_404: &str = r#"
 <!DOCTYPE html?
@@ -57,6 +59,7 @@ pub fn create_environment(config: &Config) -> Result<Environment<'static>> {
             description => config.description,
         }},
     );
+    env.add_function("pages_in_section", pages_in_section);
     minijinja_contrib::add_to_environment(&mut env);
 
     Ok(env)

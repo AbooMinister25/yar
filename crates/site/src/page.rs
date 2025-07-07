@@ -12,7 +12,7 @@ use crate::utils::build_permalink;
 use crate::utils::fs::ensure_directory;
 
 /// A single page in the site.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Page {
     pub path: PathBuf,
     pub source_hash: String,

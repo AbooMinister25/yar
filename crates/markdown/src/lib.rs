@@ -18,7 +18,7 @@ use syntect::{
 use crate::shortcodes::evaluate_all_shortcodes;
 
 /// The frontmatter metadata for a parsed markdown document.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct Frontmatter {
     pub title: String,
     pub tags: Vec<String>,
@@ -32,12 +32,12 @@ pub struct Frontmatter {
 }
 
 /// Details about a series that a post belongs to, if any.
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
 pub struct SeriesInfo {
     pub part: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct TOCHeading {
     pub id: Option<String>,
     pub text: String,
@@ -57,7 +57,7 @@ impl TOCHeading {
 }
 
 /// A parsed markdown document.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct Document {
     pub date: DateTime<Utc>,
     pub updated: DateTime<Utc>,
