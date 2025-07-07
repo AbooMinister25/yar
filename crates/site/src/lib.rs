@@ -5,6 +5,7 @@ mod asset;
 mod entry;
 mod page;
 mod static_file;
+mod templates;
 mod utils;
 
 use std::ffi::OsStr;
@@ -21,6 +22,7 @@ use crate::{
     page::Page,
     sql::{get_pages, insert_or_update_asset, insert_or_update_page, insert_or_update_static_file},
     static_file::StaticFile,
+    templates::create_environment,
     utils::fs::ensure_directory,
 };
 
@@ -44,18 +46,7 @@ impl<'a> Site<'a> {
 
         let markdown_renderer =
             MarkdownRenderer::new(config.theme_path.as_ref(), Some(&config.theme))?;
-
-        let mut env = Environment::new();
-        env.set_loader(path_loader(&config.root.join("templates")));
-        env.add_global(
-            "site",
-            context! { site => context!{
-                url => config.url,
-                author => config.author,
-                title => config.title,
-                description => config.description,
-            }},
-        );
+        let env = create_environment(&config)?;
 
         let mut pages = Vec::new();
         let mut assets = Vec::new();

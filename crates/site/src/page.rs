@@ -64,7 +64,7 @@ impl Page {
         let template = env.get_template(template)?;
 
         let rendered_html =
-            template.render(context! { document => self.document, posts => index})?;
+            template.render(context! { document => self.document, pages => index})?;
         fs::write(&self.out_path, rendered_html)?;
 
         Ok(())

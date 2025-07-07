@@ -6,7 +6,7 @@ use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use color_eyre::Result;
 use minijinja::Environment;
 use pulldown_cmark::{
-    CodeBlockKind, CowStr, Event, HeadingLevel, Options, Parser, Tag, TagEnd, html::push_html,
+    CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd, html::push_html,
 };
 use serde::{Deserialize, Serialize};
 use syntect::{
