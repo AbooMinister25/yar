@@ -8,13 +8,13 @@ mod static_file;
 mod templates;
 mod utils;
 
-use std::ffi::OsStr;
+use std::{ffi::OsStr, fs};
 
 use color_eyre::Result;
 use config::Config;
 use entry::discover_entries;
 use markdown::MarkdownRenderer;
-use minijinja::Environment;
+use minijinja::{Environment, context};
 use rusqlite::Connection;
 
 use crate::{
@@ -122,6 +122,23 @@ impl<'a> Site<'a> {
         for static_file in &self.static_files {
             static_file.render()?;
         }
+
+        // Generate 404 page.
+        let out_path = self.config.output_path.join("404.html");
+        let template = self.environment.get_template("404.html")?;
+        let rendered = template.render(context! {})?;
+        fs::write(out_path, rendered)?;
+
+        // Generate atom feed.
+        // let out_path = self.config.output_path.join("atom.xml");
+        // let template = self.environment.get_template("atom.xml")?;
+        // let last_updated = Utc::now();
+        // let feed_url = format!("{}/", self.config.url);
+
+        // let rendered = template.render(context! {
+        //     last_updated => last_updated,
+        //     feed_url => 10
+        // })?;
 
         Ok(())
     }

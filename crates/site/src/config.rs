@@ -1,11 +1,12 @@
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 /// Configuration values for a site.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Config {
-    pub url: String,
+    pub url: Url,
     pub authors: Option<Vec<String>>,
     pub title: Option<String>,
     pub description: Option<String>,
@@ -20,7 +21,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            url: String::from("http://0.0.0.0:8000/"),
+            url: Url::parse("http://0.0.0.0:8000/").expect("Invalid default URL?"),
             authors: None,
             title: None,
             description: None,

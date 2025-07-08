@@ -5,6 +5,7 @@ use std::{
 };
 
 use color_eyre::{Result, eyre::ContextCompat};
+use url::Url;
 
 use crate::utils::{build_permalink, fs::ensure_directory};
 
@@ -15,7 +16,7 @@ pub struct Asset {
     pub path: PathBuf,
     pub source_hash: String,
     pub out_path: PathBuf,
-    pub permalink: String,
+    pub permalink: Url,
     pub content: String,
 }
 
@@ -25,11 +26,11 @@ impl Asset {
         source_hash: String,
         out_dir: T,
         root: Z,
-        url: &str,
+        url: &Url,
     ) -> Result<Self> {
         let out_path = out_path(&path, &out_dir, root);
         let (content, out_path) = process_asset(&path, out_path)?;
-        let permalink = build_permalink(&out_path, url)?;
+        let permalink = build_permalink(&out_path, out_dir, url)?;
 
         Ok(Self {
             path: path.as_ref().to_owned(),

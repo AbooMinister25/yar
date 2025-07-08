@@ -4,6 +4,7 @@ use std::{
 };
 
 use color_eyre::{Result, eyre::ContextCompat};
+use url::Url;
 
 use crate::utils::{build_permalink, fs::ensure_directory};
 
@@ -14,7 +15,7 @@ pub struct StaticFile {
     pub path: PathBuf,
     pub source_hash: String,
     pub out_path: PathBuf,
-    pub permalink: String,
+    pub permalink: Url,
     pub content: Vec<u8>,
 }
 
@@ -24,10 +25,10 @@ impl StaticFile {
         source_hash: String,
         out_dir: T,
         root: Z,
-        url: &str,
+        url: &Url,
     ) -> Result<Self> {
         let out_path = out_path(&path, &out_dir, root);
-        let permalink = build_permalink(&out_path, url)?;
+        let permalink = build_permalink(&out_path, out_dir, url)?;
         let content = fs::read(&path)?;
 
         Ok(Self {

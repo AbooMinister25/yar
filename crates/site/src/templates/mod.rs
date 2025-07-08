@@ -45,10 +45,23 @@ const DEFAULT_ATOM_FEED: &str = r#"
 </feed>
 "#;
 
+const DEFAULT_SITEMAP: &str = r#"
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    {%- for page in pages %}
+    <url>
+        <loc>{{ page.permalink | escape | safe }}</loc>
+        <lastmod>{{ page.document.updated }}</lastmod>
+    </url>
+    {%- endfor %}
+</urlset>
+"#;
+
 pub fn create_environment(config: &Config) -> Result<Environment<'static>> {
     let mut env = Environment::new();
     env.add_template("404.html", DEFAULT_404)?;
-    env.add_template("atom.html", DEFAULT_ATOM_FEED)?;
+    env.add_template("atom.xml", DEFAULT_ATOM_FEED)?;
+    env.add_template("sitemap.xml", DEFAULT_SITEMAP)?;
     env.set_loader(path_loader(&config.root.join("templates")));
     env.add_global(
         "site",

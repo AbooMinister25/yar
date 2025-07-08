@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use color_eyre::{Result, eyre::ContextCompat};
 use markdown::{Document, Frontmatter, SeriesInfo};
 use rusqlite::Connection;
+use url::Url;
 
 use crate::{asset::Asset, page::Page, static_file::StaticFile};
 
@@ -117,6 +118,7 @@ pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>>
 
     let pages_iter = stmt.query_map([], |row| {
         let out_path: String = row.get(0)?;
+        let permalink: String = row.get(1)?;
         let series_part: Option<i32> = row.get(10)?;
         let tags: String = row.get(8)?;
         let parsed_tags = serde_json::from_str(&tags).expect("JSON should be valid.");
@@ -154,7 +156,7 @@ pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>>
             path: PathBuf::from(entry_path),
             source_hash: hash,
             out_path: PathBuf::from(out_path),
-            permalink: row.get(1)?,
+            permalink: Url::parse(&permalink).expect("URL should be valid."),
             document,
         })
     })?;
@@ -206,7 +208,7 @@ pub fn insert_or_update_page(conn: &Connection, page: &Page) -> Result<()> {
     ",
         (
             &page.out_path.to_str().context("Path should be valid unicode.")?,
-            &page.permalink,
+            &page.permalink.as_str(),
             &page.document.date,
             &page.document.updated,
             &page.document.content,
@@ -253,7 +255,7 @@ pub fn insert_or_update_asset(conn: &Connection, asset: &Asset) -> Result<()> {
                 .out_path
                 .to_str()
                 .context("Path should be valid unicode")?,
-            &asset.permalink,
+            &asset.permalink.as_str(),
             &asset.content,
             &asset
                 .path
@@ -293,7 +295,7 @@ pub fn insert_or_update_static_file(conn: &Connection, static_file: &StaticFile)
                 .out_path
                 .to_str()
                 .context("Path should be valid unicode")?,
-            &static_file.permalink,
+            &static_file.permalink.as_str(),
             &static_file.content,
             &static_file
                 .path

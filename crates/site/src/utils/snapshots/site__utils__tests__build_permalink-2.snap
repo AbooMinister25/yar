@@ -1,0 +1,5 @@
+---
+source: crates/site/src/utils/mod.rs
+expression: "build_permalink(path, out_dir, &url)?"
+---
+"https://example.com/posts/hello-world"

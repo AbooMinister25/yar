@@ -7,6 +7,7 @@ use color_eyre::eyre::ContextCompat;
 use markdown::{Document, MarkdownRenderer};
 use minijinja::{Environment, context};
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 use crate::utils::build_permalink;
 use crate::utils::fs::ensure_directory;
@@ -17,7 +18,7 @@ pub struct Page {
     pub path: PathBuf,
     pub source_hash: String,
     pub out_path: PathBuf,
-    pub permalink: String,
+    pub permalink: Url,
     pub document: Document,
 }
 
@@ -29,19 +30,19 @@ impl Page {
         source_hash: String,
         out_dir: T,
         root: Z,
-        url: &str,
+        url: &Url,
         markdown_renderer: &MarkdownRenderer,
         env: &Environment,
     ) -> Result<Self> {
         let document = markdown_renderer.parse_from_string(&content, env)?;
         let out_path = out_path(
             &path,
-            out_dir,
+            &out_dir,
             root,
             &document.frontmatter.title,
             document.frontmatter.slug.as_deref(),
         );
-        let permalink = build_permalink(&out_path, url)?;
+        let permalink = build_permalink(&out_path, out_dir, url)?;
 
         Ok(Self {
             path: path.as_ref().into(),
