@@ -14,33 +14,35 @@ const DEFAULT_404: &str = r#"
 const DEFAULT_ATOM_FEED: &str = r#"
 <?xml version="1.0" encoding="UTF-8">
 <feed xmlns="http://www.w3.org/2005/Atom">
-    <title> {{ site.title }} </title>
-    <link href="{{ site.feed_url | safe }}" rel="self" />
-    <link href="{{ site.url | safe}}"/>
+    <title> {{ site.title | default("Unknown") }} </title>
+    <link href="{{ feed_url | safe }}" rel="self" />
+    <link href="{{ site.url | safe }}"/>
     <updated> {{ last_updated | datetimeformat(format="iso") }} </updated>
     <id> {{ feed_url | safe }} </id>
     {% for page in pages %}
+    {% if page.path is not endingwith "index.md" %}
     <entry>
         <title> {{ page.document.frontmatter.title }} </title>
         <published> {{ page.document.date | datetimeformat(format="iso") }} </published>
         <updated> {{ page.document.updated | datetimeformat(format="iso") }} </updated>
         <id> {{ page.permalink | safe }} </id>
-        {% if page.site.authors %}
-            {% for author in page.authors %}
+        {% if site.authors %}
+            {% for author in site.authors %}
             <author>
-                <name> {{ page.site.author }} </name>
-            </author
+                <name> {{ author }} </name>
+            </author>
             {% endfor %}
         {% else %}
             <author>
                 <name> Unknown </name>
             </author>
         {% endif %}
-        <summary> {{ page.document.summary }} </summary>
+        <summary> {{ page.document.summary | safe }} </summary>
         <content type="html">
-            {{ page.document.content }}
+            {{ page.document.content | safe }}
         </content>
     </entry>
+    {% endif %}
     {% endfor %}
 </feed>
 "#;
@@ -65,12 +67,12 @@ pub fn create_environment(config: &Config) -> Result<Environment<'static>> {
     env.set_loader(path_loader(&config.root.join("templates")));
     env.add_global(
         "site",
-        context! { site => context!{
+        context! {
             url => config.url,
             authors => config.authors,
             title => config.title,
             description => config.description,
-        }},
+        },
     );
     env.add_function("pages_in_section", pages_in_section);
     minijinja_contrib::add_to_environment(&mut env);

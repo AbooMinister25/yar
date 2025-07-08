@@ -17,7 +17,7 @@ askama = "0.14.0"
 chrono = { version = "0.4.41" }
 minijinja = { version = "2.10.2", features = ["loader"] }
 grass = "0.13.4"
-minijinja-contrib = "2.11.0"
+minijinja-contrib = { version = "2.11.0", features = ["datetime"] }
 url = { version = "2.5.4", features = ["serde"] }
 
 

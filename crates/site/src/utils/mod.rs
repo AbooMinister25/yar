@@ -28,6 +28,7 @@ pub fn build_permalink<P: AsRef<Path>, T: AsRef<Path>>(
             .context("path doesn't have parent?")?
             .to_path_buf();
     }
+
     let permalink = url.join(
         url_ending
             .to_str()

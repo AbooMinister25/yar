@@ -10,6 +10,7 @@ mod utils;
 
 use std::{ffi::OsStr, fs};
 
+use chrono::Utc;
 use color_eyre::Result;
 use config::Config;
 use entry::discover_entries;
@@ -130,15 +131,17 @@ impl<'a> Site<'a> {
         fs::write(out_path, rendered)?;
 
         // Generate atom feed.
-        // let out_path = self.config.output_path.join("atom.xml");
-        // let template = self.environment.get_template("atom.xml")?;
-        // let last_updated = Utc::now();
-        // let feed_url = format!("{}/", self.config.url);
+        let out_path = self.config.output_path.join("atom.xml");
+        let template = self.environment.get_template("atom.xml")?;
+        let last_updated = Utc::now();
+        let feed_url = self.config.url.join("atom.xml")?;
 
-        // let rendered = template.render(context! {
-        //     last_updated => last_updated,
-        //     feed_url => 10
-        // })?;
+        let rendered = template.render(context! {
+            last_updated => last_updated,
+            feed_url => feed_url,
+            pages => combined_index,
+        })?;
+        fs::write(out_path, rendered)?;
 
         Ok(())
     }
