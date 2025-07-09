@@ -1,0 +1,5 @@
+---
+source: crates/site/src/asset.rs
+expression: path
+---
+public/style.scss

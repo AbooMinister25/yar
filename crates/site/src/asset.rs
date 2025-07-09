@@ -89,3 +89,25 @@ fn out_path<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
 
     out_dir.components().chain(components).collect::<PathBuf>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_out_path() -> Result<()> {
+        let path = out_path("site/assets/style.scss", "public", "site");
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path("site/_assets/style.scss", "public", "site");
+        insta::assert_yaml_snapshot!(path);
+        
+        let path = out_path("assets/style.scss", "public", ".");
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path("style.scss", "public", ".");
+        insta::assert_yaml_snapshot!(path);
+
+        Ok(())
+    }
+}

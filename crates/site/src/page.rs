@@ -105,3 +105,64 @@ fn out_path<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
         .collect::<PathBuf>()
         .join(ending)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_out_path() -> Result<()> {
+        let path = out_path(
+            "site/_content/posts/hello-world.md",
+            "public",
+            "site",
+            "hello world",
+            None,
+        );
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path(
+            "site/_content/posts/hello-world.md",
+            "public",
+            "site",
+            "hello world",
+            Some("thisisaslug"),
+        );
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path(
+            "_content/posts/hello-world.md",
+            "public",
+            ".",
+            "hello world",
+            None,
+        );
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path("hello-world.md", "public", ".", "hello world", None);
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path(
+            "site/_content/series/hello-world/index.md",
+            "public",
+            "site",
+            "this is a series",
+            None,
+        );
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path(
+            "site/_content/series/hello-world/part-1.md",
+            "public",
+            "site",
+            "Part One",
+            None,
+        );
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path("site/_content/index.md", "public", "site", "", None);
+        insta::assert_yaml_snapshot!(path);
+
+        Ok(())
+    }
+}

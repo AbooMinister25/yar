@@ -1,0 +1,5 @@
+---
+source: crates/site/src/page.rs
+expression: path
+---
+public/index.html

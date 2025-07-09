@@ -1,0 +1,5 @@
+---
+source: crates/site/src/static_file.rs
+expression: path
+---
+public/image.png

@@ -68,3 +68,25 @@ fn out_path<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
 
     out_dir.components().chain(components).collect::<PathBuf>()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_out_path() -> Result<()> {
+        let path = out_path("site/static/image.png", "public", "site");
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path("site/_static/image.png", "public", "site");
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path("static/image.png", "public", ".");
+        insta::assert_yaml_snapshot!(path);
+
+        let path = out_path("image.png", "public", ".");
+        insta::assert_yaml_snapshot!(path);
+
+        Ok(())
+    }
+}
