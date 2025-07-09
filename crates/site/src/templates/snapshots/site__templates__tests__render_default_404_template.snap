@@ -1,0 +1,5 @@
+---
+source: crates/site/src/templates/mod.rs
+expression: rendered
+---
+"\n<!DOCTYPE html?\n<h1> Page Not Found</h1>\n<a href=\"http://0.0.0.0:8000/\">Home</a>"

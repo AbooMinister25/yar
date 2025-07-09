@@ -8,7 +8,7 @@ use crate::{config::Config, templates::functions::pages_in_section};
 const DEFAULT_404: &str = r#"
 <!DOCTYPE html?
 <h1> Page Not Found</h1>
-<a href="{{ site.url }}">Home</a>
+<a href="{{ site.url | safe }}">Home</a>
 "#;
 
 const DEFAULT_ATOM_FEED: &str = r#"
@@ -52,7 +52,7 @@ const DEFAULT_SITEMAP: &str = r#"
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     {%- for page in pages %}
     <url>
-        <loc>{{ page.permalink | escape | safe }}</loc>
+        <loc>{{ page.permalink | safe }}</loc>
         <lastmod>{{ page.document.updated }}</lastmod>
     </url>
     {%- endfor %}
@@ -78,4 +78,95 @@ pub fn create_environment(config: &Config) -> Result<Environment<'static>> {
     minijinja_contrib::add_to_environment(&mut env);
 
     Ok(env)
+}
+
+#[cfg(test)]
+mod tests {
+    use chrono::{TimeZone, Utc};
+    use markdown::MarkdownRenderer;
+    use url::Url;
+
+    use crate::page::Page;
+
+    use super::*;
+
+    fn make_pages() -> Result<Vec<Page>> {
+        let pages = Vec::from_iter(0..10)
+            .iter()
+            .map(|n| {
+                format!(
+                    r#"
+---
+title = "post-{n}"
+tags = ["foo"]
+template = "page.html"
+date = "2025-01-01T6:00:00"
+updated = "2025-03-12T8:00:00"
+---
+
+Hello World
+        "#
+                )
+            })
+            .enumerate()
+            .map(|(n, s)| {
+                Page::new(
+                    format!("site/_content/series/testing/post-{n}.md"),
+                    s,
+                    "hashplaceholder".to_string(),
+                    "public/",
+                    "site/",
+                    &Url::parse("https://example.com")?,
+                    &MarkdownRenderer::new::<&str>(None, None)?,
+                    &Environment::empty(),
+                )
+            })
+            .collect::<Result<Vec<Page>>>()?;
+
+        Ok(pages)
+    }
+
+    #[test]
+    fn test_render_default_404_template() -> Result<()> {
+        let env = create_environment(&Config::default())?;
+        let rendered = env.get_template("404.html")?.render(context! {})?;
+
+        insta::assert_yaml_snapshot!(rendered);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_default_atom_template() -> Result<()> {
+        let cfg = Config::default();
+        let feed_url = cfg.url.join("atom.xml")?;
+        let pages = make_pages()?;
+        let dt = Utc.with_ymd_and_hms(2025, 1, 1, 0, 1, 1);
+
+        let env = create_environment(&cfg)?;
+        let rendered = env.get_template("atom.xml")?.render(context! {
+            last_updated => dt.unwrap(),
+            feed_url => feed_url,
+            pages => pages
+        })?;
+
+        insta::assert_yaml_snapshot!(rendered);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_render_default_sitemap_template() -> Result<()> {
+        let cfg = Config::default();
+        let pages = make_pages()?;
+
+        let env = create_environment(&cfg)?;
+        let rendered = env.get_template("sitemap.xml")?.render(context! {
+            pages => pages
+        })?;
+
+        insta::assert_yaml_snapshot!(rendered);
+
+        Ok(())
+    }
 }
