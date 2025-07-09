@@ -1,0 +1,204 @@
+---
+source: crates/site/src/templates/functions.rs
+expression: found
+---
+- document:
+    content: "<p>Hello World</p>\n"
+    date: "2025-01-01T06:00:00Z"
+    frontmatter:
+      date: "2025-01-01T6:00:00"
+      draft: false
+      series: ~
+      slug: ~
+      tags:
+        - foo
+      template: page.html
+      title: post-0
+      updated: "2025-03-12T8:00:00"
+    summary: "<p>Hello World</p>\n"
+    toc: []
+    updated: "2025-03-12T08:00:00Z"
+  out_path: public/series/testing/post-0/index.html
+  path: site/_content/series/testing/post-0.md
+  permalink: "https://example.com/series/testing/post-0"
+  source_hash: hashplaceholder
+- document:
+    content: "<p>Hello World</p>\n"
+    date: "2025-01-01T06:00:00Z"
+    frontmatter:
+      date: "2025-01-01T6:00:00"
+      draft: false
+      series: ~
+      slug: ~
+      tags:
+        - foo
+      template: page.html
+      title: post-1
+      updated: "2025-03-12T8:00:00"
+    summary: "<p>Hello World</p>\n"
+    toc: []
+    updated: "2025-03-12T08:00:00Z"
+  out_path: public/series/testing/post-1/index.html
+  path: site/_content/series/testing/post-1.md
+  permalink: "https://example.com/series/testing/post-1"
+  source_hash: hashplaceholder
+- document:
+    content: "<p>Hello World</p>\n"
+    date: "2025-01-01T06:00:00Z"
+    frontmatter:
+      date: "2025-01-01T6:00:00"
+      draft: false
+      series: ~
+      slug: ~
+      tags:
+        - foo
+      template: page.html
+      title: post-2
+      updated: "2025-03-12T8:00:00"
+    summary: "<p>Hello World</p>\n"
+    toc: []
+    updated: "2025-03-12T08:00:00Z"
+  out_path: public/series/testing/post-2/index.html
+  path: site/_content/series/testing/post-2.md
+  permalink: "https://example.com/series/testing/post-2"
+  source_hash: hashplaceholder
+- document:
+    content: "<p>Hello World</p>\n"
+    date: "2025-01-01T06:00:00Z"
+    frontmatter:
+      date: "2025-01-01T6:00:00"
+      draft: false
+      series: ~
+      slug: ~
+      tags:
+        - foo
+      template: page.html
+      title: post-3
+      updated: "2025-03-12T8:00:00"
+    summary: "<p>Hello World</p>\n"
+    toc: []
+    updated: "2025-03-12T08:00:00Z"
+  out_path: public/series/testing/post-3/index.html
+  path: site/_content/series/testing/post-3.md
+  permalink: "https://example.com/series/testing/post-3"
+  source_hash: hashplaceholder
+- document:
+    content: "<p>Hello World</p>\n"
+    date: "2025-01-01T06:00:00Z"
+    frontmatter:
+      date: "2025-01-01T6:00:00"
+      draft: false
+      series: ~
+      slug: ~
+      tags:
+        - foo
+      template: page.html
+      title: post-4
+      updated: "2025-03-12T8:00:00"
+    summary: "<p>Hello World</p>\n"
+    toc: []
+    updated: "2025-03-12T08:00:00Z"
+  out_path: public/series/testing/post-4/index.html
+  path: site/_content/series/testing/post-4.md
+  permalink: "https://example.com/series/testing/post-4"
+  source_hash: hashplaceholder
+- document:
+    content: "<p>Hello World</p>\n"
+    date: "2025-01-01T06:00:00Z"
+    frontmatter:
+      date: "2025-01-01T6:00:00"
+      draft: false
+      series: ~
+      slug: ~
+      tags:
+        - foo
+      template: page.html
+      title: post-5
+      updated: "2025-03-12T8:00:00"
+    summary: "<p>Hello World</p>\n"
+    toc: []
+    updated: "2025-03-12T08:00:00Z"
+  out_path: public/series/testing/post-5/index.html
+  path: site/_content/series/testing/post-5.md
+  permalink: "https://example.com/series/testing/post-5"
+  source_hash: hashplaceholder
+- document:
+    content: "<p>Hello World</p>\n"
+    date: "2025-01-01T06:00:00Z"
+    frontmatter:
+      date: "2025-01-01T6:00:00"
+      draft: false
+      series: ~
+      slug: ~
+      tags:
+        - foo
+      template: page.html
+      title: post-6
+      updated: "2025-03-12T8:00:00"
+    summary: "<p>Hello World</p>\n"
+    toc: []
+    updated: "2025-03-12T08:00:00Z"
+  out_path: public/series/testing/post-6/index.html
+  path: site/_content/series/testing/post-6.md
+  permalink: "https://example.com/series/testing/post-6"
+  source_hash: hashplaceholder
+- document:
+    content: "<p>Hello World</p>\n"
+    date: "2025-01-01T06:00:00Z"
+    frontmatter:
+      date: "2025-01-01T6:00:00"
+      draft: false
+      series: ~
+      slug: ~
+      tags:
+        - foo
+      template: page.html
+      title: post-7
+      updated: "2025-03-12T8:00:00"
+    summary: "<p>Hello World</p>\n"
+    toc: []
+    updated: "2025-03-12T08:00:00Z"
+  out_path: public/series/testing/post-7/index.html
+  path: site/_content/series/testing/post-7.md
+  permalink: "https://example.com/series/testing/post-7"
+  source_hash: hashplaceholder
+- document:
+    content: "<p>Hello World</p>\n"
+    date: "2025-01-01T06:00:00Z"
+    frontmatter:
+      date: "2025-01-01T6:00:00"
+      draft: false
+      series: ~
+      slug: ~
+      tags:
+        - foo
+      template: page.html
+      title: post-8
+      updated: "2025-03-12T8:00:00"
+    summary: "<p>Hello World</p>\n"
+    toc: []
+    updated: "2025-03-12T08:00:00Z"
+  out_path: public/series/testing/post-8/index.html
+  path: site/_content/series/testing/post-8.md
+  permalink: "https://example.com/series/testing/post-8"
+  source_hash: hashplaceholder
+- document:
+    content: "<p>Hello World</p>\n"
+    date: "2025-01-01T06:00:00Z"
+    frontmatter:
+      date: "2025-01-01T6:00:00"
+      draft: false
+      series: ~
+      slug: ~
+      tags:
+        - foo
+      template: page.html
+      title: post-9
+      updated: "2025-03-12T8:00:00"
+    summary: "<p>Hello World</p>\n"
+    toc: []
+    updated: "2025-03-12T08:00:00Z"
+  out_path: public/series/testing/post-9/index.html
+  path: site/_content/series/testing/post-9.md
+  permalink: "https://example.com/series/testing/post-9"
+  source_hash: hashplaceholder
