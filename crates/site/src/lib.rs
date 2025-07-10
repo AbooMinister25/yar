@@ -34,7 +34,7 @@ pub struct Site<'a> {
     pages: Vec<Page>,
     assets: Vec<Asset>,
     static_files: Vec<StaticFile>,
-    index: Vec<Page>,
+    // pages_to_build: Vec<Rc<Page>>,
     environment: Environment<'a>,
     markdown_renderer: MarkdownRenderer,
 }
@@ -42,16 +42,33 @@ pub struct Site<'a> {
 impl<'a> Site<'a> {
     /// Create a new site.
     pub fn new(conn: Connection, config: Config) -> Result<Self> {
-        let entries = discover_entries(&config.root, &conn)?;
-        println!("Discovered {} entries to build", entries.len());
-
         let markdown_renderer =
             MarkdownRenderer::new(config.theme_path.as_ref(), Some(&config.theme))?;
         let env = create_environment(&config)?;
 
-        let mut pages = Vec::new();
-        let mut assets = Vec::new();
-        let mut static_files = Vec::new();
+        Ok(Self {
+            conn,
+            config,
+            pages: Vec::new(),
+            assets: Vec::new(),
+            static_files: Vec::new(),
+            environment: env,
+            markdown_renderer,
+        })
+    }
+
+    /// Loads the site, finding and building changed/new entries.
+    ///
+    /// Keep in mind that if this is run without the previous iteration
+    /// of the site being committed to the database with `Site.commit_to_db`,
+    /// everything built in that iteration will be rebuilt.
+    pub fn load(&mut self) -> Result<()> {
+        self.pages.clear();
+        self.assets.clear();
+        self.static_files.clear();
+
+        let entries = discover_entries(&self.config.root, &self.conn)?;
+        println!("Discovered {} entries to build", entries.len());
 
         for entry in entries {
             match entry.path.extension().and_then(OsStr::to_str) {
@@ -60,59 +77,52 @@ impl<'a> Site<'a> {
                         entry.path,
                         String::from_utf8(entry.raw_content)?,
                         entry.hash,
-                        &config.output_path,
-                        &config.root,
-                        &config.url,
-                        &markdown_renderer,
-                        &env,
+                        &self.config.output_path,
+                        &self.config.root,
+                        &self.config.url,
+                        &self.markdown_renderer,
+                        &self.environment,
                     )?;
-                    pages.push(page);
+                    self.pages.push(page);
                 }
                 Some("css") | Some("scss") | Some("js") => {
                     let asset = Asset::new(
                         entry.path,
                         entry.hash,
-                        &config.output_path,
-                        &config.root,
-                        &config.url,
+                        &self.config.output_path,
+                        &self.config.root,
+                        &self.config.url,
                     )?;
-                    assets.push(asset);
+                    self.assets.push(asset);
                 }
                 _ => {
                     // Copy over any remaining extensions as-is.
                     let static_file = StaticFile::new(
                         entry.path,
                         entry.hash,
-                        &config.output_path,
-                        &config.root,
-                        &config.url,
+                        &self.config.output_path,
+                        &self.config.root,
+                        &self.config.url,
                     )?;
-                    static_files.push(static_file)
+                    self.static_files.push(static_file)
                 }
             }
         }
 
-        // Get all of the pages in the database save from the ones we are building/rebuilding right now.
-        let index = get_pages(&conn, pages.iter().map(|p| p.path.as_path()).collect())?;
-
-        Ok(Self {
-            conn,
-            config,
-            pages,
-            assets,
-            static_files,
-            index,
-            environment: env,
-            markdown_renderer,
-        })
+        Ok(())
     }
 
     /// Renders the site to disk.
     pub fn render(&self) -> Result<()> {
         ensure_directory(&self.config.output_path)?;
 
-        let combined_index = self.index.iter().chain(&self.pages).collect::<Vec<&Page>>();
-        for page in &self.pages {
+        let index = get_pages(
+            &self.conn,
+            self.pages.iter().map(|p| p.path.as_path()).collect(),
+        )?;
+        let combined_index = index.iter().chain(&self.pages).collect::<Vec<&Page>>();
+
+        for page in self.pages.iter() {
             page.render(&combined_index, &self.environment)?;
         }
 

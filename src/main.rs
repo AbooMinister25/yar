@@ -57,10 +57,10 @@ fn main() -> Result<()> {
         }
 
         let conn = setup_sql()?;
-
         let now = Instant::now();
 
-        let site = Site::new(conn, config)?;
+        let mut site = Site::new(conn, config)?;
+        site.load()?;
         site.render()?;
         site.commit_to_db()?;
 
