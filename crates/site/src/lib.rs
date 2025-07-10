@@ -42,8 +42,10 @@ pub struct Site<'a> {
 impl<'a> Site<'a> {
     /// Create a new site.
     pub fn new(conn: Connection, config: Config) -> Result<Self> {
-        let markdown_renderer =
-            MarkdownRenderer::new(config.theme_path.as_ref(), Some(&config.theme))?;
+        let markdown_renderer = MarkdownRenderer::new(
+            config.site.syntax_theme_path.as_ref(),
+            Some(&config.site.syntax_theme),
+        )?;
         let env = create_environment(&config)?;
 
         Ok(Self {
@@ -67,7 +69,7 @@ impl<'a> Site<'a> {
         self.assets.clear();
         self.static_files.clear();
 
-        let entries = discover_entries(&self.config.root, &self.conn)?;
+        let entries = discover_entries(&self.config.site.root, &self.conn)?;
         println!("Discovered {} entries to build", entries.len());
 
         for entry in entries {
@@ -77,9 +79,9 @@ impl<'a> Site<'a> {
                         entry.path,
                         String::from_utf8(entry.raw_content)?,
                         entry.hash,
-                        &self.config.output_path,
-                        &self.config.root,
-                        &self.config.url,
+                        &self.config.site.output_path,
+                        &self.config.site.root,
+                        &self.config.site.url,
                         &self.markdown_renderer,
                         &self.environment,
                     )?;
@@ -89,9 +91,9 @@ impl<'a> Site<'a> {
                     let asset = Asset::new(
                         entry.path,
                         entry.hash,
-                        &self.config.output_path,
-                        &self.config.root,
-                        &self.config.url,
+                        &self.config.site.output_path,
+                        &self.config.site.root,
+                        &self.config.site.url,
                     )?;
                     self.assets.push(asset);
                 }
@@ -100,9 +102,9 @@ impl<'a> Site<'a> {
                     let static_file = StaticFile::new(
                         entry.path,
                         entry.hash,
-                        &self.config.output_path,
-                        &self.config.root,
-                        &self.config.url,
+                        &self.config.site.output_path,
+                        &self.config.site.root,
+                        &self.config.site.url,
                     )?;
                     self.static_files.push(static_file)
                 }
@@ -114,7 +116,7 @@ impl<'a> Site<'a> {
 
     /// Renders the site to disk.
     pub fn render(&self) -> Result<()> {
-        ensure_directory(&self.config.output_path)?;
+        ensure_directory(&self.config.site.output_path)?;
 
         let index = get_pages(
             &self.conn,
@@ -135,16 +137,16 @@ impl<'a> Site<'a> {
         }
 
         // Generate 404 page.
-        let out_path = self.config.output_path.join("404.html");
+        let out_path = self.config.site.output_path.join("404.html");
         let template = self.environment.get_template("404.html")?;
         let rendered = template.render(context! {})?;
         fs::write(out_path, rendered)?;
 
         // Generate atom feed.
-        let out_path = self.config.output_path.join("atom.xml");
+        let out_path = self.config.site.output_path.join("atom.xml");
         let template = self.environment.get_template("atom.xml")?;
         let last_updated = Utc::now();
-        let feed_url = self.config.url.join("atom.xml")?;
+        let feed_url = self.config.site.url.join("atom.xml")?;
 
         let rendered = template.render(context! {
             last_updated => last_updated,
@@ -154,7 +156,7 @@ impl<'a> Site<'a> {
         fs::write(out_path, rendered)?;
 
         // Generate sitemap.
-        let out_path = self.config.output_path.join("sitemap.xml");
+        let out_path = self.config.site.output_path.join("sitemap.xml");
         let template = self.environment.get_template("sitemap.xml")?;
         let rendered = template.render(context! {
             pages => combined_index,

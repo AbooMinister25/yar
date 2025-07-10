@@ -64,14 +64,14 @@ pub fn create_environment(config: &Config) -> Result<Environment<'static>> {
     env.add_template("404.html", DEFAULT_404)?;
     env.add_template("atom.xml", DEFAULT_ATOM_FEED)?;
     env.add_template("sitemap.xml", DEFAULT_SITEMAP)?;
-    env.set_loader(path_loader(&config.root.join("templates")));
+    env.set_loader(path_loader(&config.site.root.join("templates")));
     env.add_global(
         "site",
         context! {
-            url => config.url,
-            authors => config.authors,
-            title => config.title,
-            description => config.description,
+            url => config.site.url,
+            authors => config.site.authors,
+            title => config.site.title,
+            description => config.site.description,
         },
     );
     env.add_function("pages_in_section", pages_in_section);
@@ -139,7 +139,7 @@ Hello World
     #[test]
     fn test_render_default_atom_template() -> Result<()> {
         let cfg = Config::default();
-        let feed_url = cfg.url.join("atom.xml")?;
+        let feed_url = cfg.site.url.join("atom.xml")?;
         let pages = make_pages()?;
         let dt = Utc.with_ymd_and_hms(2025, 1, 1, 0, 1, 1);
 

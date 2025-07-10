@@ -46,8 +46,8 @@ fn main() -> Result<()> {
             .extract()?;
 
         // Build site in a temporary directory and copy it over once everything is built
-        let original_output_path = config.output_path;
-        config.output_path = tmp_dir.path().join("public");
+        let original_output_path = config.site.output_path;
+        config.site.output_path = tmp_dir.path().join("public");
 
         // Clean build
         if clean {
