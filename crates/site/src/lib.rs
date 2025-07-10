@@ -153,6 +153,14 @@ impl<'a> Site<'a> {
         })?;
         fs::write(out_path, rendered)?;
 
+        // Generate sitemap.
+        let out_path = self.config.output_path.join("sitemap.xml");
+        let template = self.environment.get_template("sitemap.xml")?;
+        let rendered = template.render(context! {
+            pages => combined_index,
+        })?;
+        fs::write(out_path, rendered)?;
+
         Ok(())
     }
 
