@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 /// Configuration values for a site.
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct Config {
     /// Site specific configuration.
     pub site: SiteConfig,
@@ -45,7 +45,7 @@ pub struct SiteConfig {
 ///
 /// Hooks are commands that are run on files that match a glob patterns. They accompany
 /// some event, e.g after processing.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct HooksConfig {
     /// Hooks that are run once the static site generator has finished processing.
     ///
@@ -63,15 +63,6 @@ pub struct Post {
     pub help: Option<String>,
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            site: SiteConfig::default(),
-            hooks: HooksConfig::default(),
-        }
-    }
-}
-
 impl Default for SiteConfig {
     fn default() -> Self {
         Self {
@@ -86,11 +77,5 @@ impl Default for SiteConfig {
             syntax_theme: String::from("base16-ocean.dark"),
             syntax_theme_path: None,
         }
-    }
-}
-
-impl Default for HooksConfig {
-    fn default() -> Self {
-        Self { post: Vec::new() }
     }
 }
