@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use color_eyre::Result;
 use color_eyre::eyre::ContextCompat;
 use markdown::{Document, MarkdownRenderer};
+use minify_html::{Cfg, minify};
 use minijinja::{Environment, context};
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -66,7 +67,10 @@ impl Page {
 
         let rendered_html =
             template.render(context! { document => self.document, pages => index})?;
-        fs::write(&self.out_path, rendered_html)?;
+        let cfg = Cfg::new();
+        let minified = minify(rendered_html.as_bytes(), &cfg);
+
+        fs::write(&self.out_path, minified)?;
 
         Ok(())
     }
