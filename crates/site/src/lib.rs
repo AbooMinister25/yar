@@ -130,12 +130,6 @@ impl<'a> Site<'a> {
     pub fn render(&self) -> Result<()> {
         ensure_directory(&self.config.site.output_path)?;
 
-        // let index = get_pages(
-        //     &self.conn,
-        //     self.pages.iter().map(|p| p.path.as_path()).collect(),
-        // )?;
-        // let combined_index = index.iter().chain(&self.pages).collect::<Vec<&Page>>();
-
         for page in self.pages.iter() {
             page.render(&self.pages, &self.environment)?;
         }
