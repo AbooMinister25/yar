@@ -8,7 +8,7 @@ mod static_file;
 mod templates;
 mod utils;
 
-use std::{ffi::OsStr, fs};
+use std::{ffi::OsStr, fs, rc::Rc};
 
 use chrono::Utc;
 use color_eyre::Result;
@@ -31,10 +31,10 @@ use crate::{
 pub struct Site<'a> {
     conn: Connection,
     config: Config,
-    pages: Vec<Page>,
+    pages: Vec<Rc<Page>>,
+    pages_to_build: Vec<Rc<Page>>,
     assets: Vec<Asset>,
     static_files: Vec<StaticFile>,
-    // pages_to_build: Vec<Rc<Page>>,
     environment: Environment<'a>,
     markdown_renderer: MarkdownRenderer,
 }
@@ -52,6 +52,7 @@ impl<'a> Site<'a> {
             conn,
             config,
             pages: Vec::new(),
+            pages_to_build: Vec::new(),
             assets: Vec::new(),
             static_files: Vec::new(),
             environment: env,
@@ -75,7 +76,7 @@ impl<'a> Site<'a> {
         for entry in entries {
             match entry.path.extension().and_then(OsStr::to_str) {
                 Some("md") => {
-                    let page = Page::new(
+                    let page = Rc::new(Page::new(
                         entry.path,
                         String::from_utf8(entry.raw_content)?,
                         entry.hash,
@@ -84,8 +85,9 @@ impl<'a> Site<'a> {
                         &self.config.site.url,
                         &self.markdown_renderer,
                         &self.environment,
-                    )?;
-                    self.pages.push(page);
+                    )?);
+                    self.pages.push(Rc::clone(&page));
+                    self.pages_to_build.push(Rc::clone(&page));
                 }
                 Some("css") | Some("scss") | Some("js") => {
                     let asset = Asset::new(
@@ -111,6 +113,16 @@ impl<'a> Site<'a> {
             }
         }
 
+        let remaining_pages = get_pages(
+            &self.conn,
+            self.pages_to_build
+                .iter()
+                .map(|p| p.path.as_path())
+                .collect(),
+        )?;
+        self.pages
+            .extend(remaining_pages.into_iter().map(Rc::new));
+
         Ok(())
     }
 
@@ -118,14 +130,14 @@ impl<'a> Site<'a> {
     pub fn render(&self) -> Result<()> {
         ensure_directory(&self.config.site.output_path)?;
 
-        let index = get_pages(
-            &self.conn,
-            self.pages.iter().map(|p| p.path.as_path()).collect(),
-        )?;
-        let combined_index = index.iter().chain(&self.pages).collect::<Vec<&Page>>();
+        // let index = get_pages(
+        //     &self.conn,
+        //     self.pages.iter().map(|p| p.path.as_path()).collect(),
+        // )?;
+        // let combined_index = index.iter().chain(&self.pages).collect::<Vec<&Page>>();
 
         for page in self.pages.iter() {
-            page.render(&combined_index, &self.environment)?;
+            page.render(&self.pages, &self.environment)?;
         }
 
         for asset in &self.assets {
@@ -151,7 +163,7 @@ impl<'a> Site<'a> {
         let rendered = template.render(context! {
             last_updated => last_updated,
             feed_url => feed_url,
-            pages => combined_index,
+            pages => &self.pages,
         })?;
         fs::write(out_path, rendered)?;
 
@@ -159,7 +171,7 @@ impl<'a> Site<'a> {
         let out_path = self.config.site.output_path.join("sitemap.xml");
         let template = self.environment.get_template("sitemap.xml")?;
         let rendered = template.render(context! {
-            pages => combined_index,
+            pages => &self.pages,
         })?;
         fs::write(out_path, rendered)?;
 

@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use color_eyre::Result;
 use color_eyre::eyre::ContextCompat;
@@ -54,7 +55,7 @@ impl Page {
         })
     }
 
-    pub fn render(&self, index: &[&Page], env: &Environment) -> Result<()> {
+    pub fn render(&self, index: &[Rc<Page>], env: &Environment) -> Result<()> {
         ensure_directory(
             self.out_path
                 .parent()
