@@ -27,7 +27,7 @@ use crate::{
     page::Page,
     sql::{
         get_pages, get_tags, insert_or_update_asset, insert_or_update_page,
-        insert_or_update_static_file,
+        insert_or_update_static_file, insert_tag,
     },
     static_file::StaticFile,
     templates::create_environment,
@@ -194,18 +194,26 @@ impl Site<'_> {
     }
 
     /// Commit the state of the site to the database.
-    pub fn commit_to_db(&self) -> Result<()> {
+    pub fn commit_to_db(&mut self) -> Result<()> {
+        let tx = self.conn.transaction()?;
+
         for page in &self.pages {
-            insert_or_update_page(&self.conn, page)?;
+            insert_or_update_page(&tx, page)?;
         }
 
         for asset in &self.assets {
-            insert_or_update_asset(&self.conn, asset)?;
+            insert_or_update_asset(&tx, asset)?;
         }
 
         for static_file in &self.static_files {
-            insert_or_update_static_file(&self.conn, static_file)?;
+            insert_or_update_static_file(&tx, static_file)?;
         }
+
+        for tag in &self.tags {
+            insert_tag(&tx, tag)?;
+        }
+
+        tx.commit()?;
 
         Ok(())
     }

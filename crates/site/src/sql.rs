@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use color_eyre::{Result, eyre::ContextCompat};
 use markdown::{Document, Frontmatter, SeriesInfo};
-use rusqlite::{Connection, Transaction};
+use rusqlite::Connection;
 use url::Url;
 
 use crate::{asset::Asset, page::Page, static_file::StaticFile};
@@ -343,26 +343,16 @@ pub fn insert_or_update_static_file(conn: &Connection, static_file: &StaticFile)
     Ok(())
 }
 
-/// Given an array of tags, insert any tags that don't exist in the database into the database.
-pub fn insert_tags(conn: &mut Connection, tags: &[String]) -> Result<()> {
-    let mut tx = conn.transaction()?;
-    insert_tags_batch(&mut tx, tags)?;
-    tx.commit()?;
-
-    Ok(())
-}
-
-fn insert_tags_batch(tx: &mut Transaction, tags: &[String]) -> Result<()> {
-    let mut stmt = tx.prepare(
+/// Insert the tag, or if it already exists, do nothing.
+pub fn insert_tag(conn: &Connection, tag: &str) -> Result<()> {
+    let mut stmt = conn.prepare(
         "
         INSERT INTO tags (name) VALUES (?1)
         ON CONFLICT (name) DO NOTHING
         ",
     )?;
 
-    for tag in tags {
-        stmt.execute((tag,))?;
-    }
+    stmt.execute((tag,))?;
 
     Ok(())
 }
