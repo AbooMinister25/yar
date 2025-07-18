@@ -28,7 +28,7 @@ impl Page {
     #[allow(clippy::too_many_arguments)]
     pub fn new<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
         path: P,
-        content: String,
+        content: &str,
         source_hash: String,
         out_dir: T,
         root: Z,
@@ -36,7 +36,7 @@ impl Page {
         markdown_renderer: &MarkdownRenderer,
         env: &Environment,
     ) -> Result<Self> {
-        let document = markdown_renderer.parse_from_string(&content, env)?;
+        let document = markdown_renderer.parse_from_string(content, env)?;
         let out_path = out_path(
             &path,
             &out_dir,
@@ -55,7 +55,7 @@ impl Page {
         })
     }
 
-    pub fn render(&self, index: &[Rc<Page>], env: &Environment) -> Result<()> {
+    pub fn render(&self, index: &[Rc<Self>], env: &Environment) -> Result<()> {
         ensure_directory(
             self.out_path
                 .parent()
@@ -96,9 +96,9 @@ fn out_path<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
     let mut components = path
         .as_ref()
         .parent()
-        .unwrap_or(path.as_ref())
+        .unwrap_or_else(|| path.as_ref())
         .components()
-        .filter(|c| !c.as_os_str().to_str().is_some_and(|s| s.starts_with("_")));
+        .filter(|c| !c.as_os_str().to_str().is_some_and(|s| s.starts_with('_')));
 
     if root.as_ref() != Path::new(".") {
         components.next();
@@ -116,7 +116,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_out_path() -> Result<()> {
+    fn test_out_path() {
         let path = out_path(
             "site/_content/posts/hello-world.md",
             "public",
@@ -167,7 +167,5 @@ mod tests {
 
         let path = out_path("site/_content/index.md", "public", "site", "", None);
         insta::assert_yaml_snapshot!(path);
-
-        Ok(())
     }
 }

@@ -81,7 +81,7 @@ fn out_path<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
     let mut components = path
         .as_ref()
         .components()
-        .filter(|c| !c.as_os_str().to_str().is_some_and(|s| s.starts_with("_")));
+        .filter(|c| !c.as_os_str().to_str().is_some_and(|s| s.starts_with('_')));
 
     if root.as_ref() != Path::new(".") {
         components.next();
@@ -95,7 +95,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_out_path() -> Result<()> {
+    fn test_out_path() {
         let path = out_path("site/assets/style.scss", "public", "site");
         insta::assert_yaml_snapshot!(path);
 
@@ -107,7 +107,5 @@ mod tests {
 
         let path = out_path("style.scss", "public", ".");
         insta::assert_yaml_snapshot!(path);
-
-        Ok(())
     }
 }

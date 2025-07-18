@@ -53,7 +53,7 @@ pub fn evaluate_all_shortcodes(
             Item::Text(s) => s,
         };
 
-        ret.push(parsed)
+        ret.push(parsed);
     }
 
     Ok(ret.join(""))
@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_parse_shortcode() -> Result<()> {
-        let test_input = r#"
+        let test_input = r"
 # Hello World
 
 Testing Content
@@ -194,7 +194,7 @@ hello world
 {{! end !}}
 
 more text
-        "#;
+        ";
 
         let items = parse(test_input)?;
         insta::with_settings!({sort_maps => true}, {
@@ -206,7 +206,7 @@ more text
 
     #[test]
     fn test_evaluate_shortcode() -> Result<()> {
-        let test_input = r#"
+        let test_input = r"
 # Hello World
 
 {{! note !}}
@@ -214,7 +214,7 @@ this is a note!
 {{! end !}}
 
 more text
-        "#;
+        ";
 
         let template_str = r#"
 <div class="note">

@@ -1,11 +1,12 @@
-use minijinja::{Error, Value, value::ViaDeserialize};
+use minijinja::{Value, value::ViaDeserialize};
 
 use crate::page::Page;
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn pages_in_section(
     section_name: String,
     pages: ViaDeserialize<Vec<Page>>,
-) -> Result<Value, Error> {
+) -> minijinja::Value {
     let section_pages = pages.iter().filter(|page| {
         page.path.parent().is_some_and(|path| {
             path.file_name()
@@ -13,7 +14,7 @@ pub fn pages_in_section(
         })
     });
 
-    Ok(Value::from_serialize(section_pages.collect::<Vec<&Page>>()))
+    Value::from_serialize(section_pages.collect::<Vec<&Page>>())
 }
 
 #[cfg(test)]
@@ -27,7 +28,7 @@ mod tests {
 
     #[test]
     fn test_pages_in_section() -> Result<()> {
-        let pages = Vec::from_iter(0..10)
+        let pages = (0..10).collect::<Vec<_>>()
             .iter()
             .map(|n| {
                 format!(
@@ -48,7 +49,7 @@ Hello World
             .map(|(n, s)| {
                 Page::new(
                     format!("site/_content/series/testing/post-{n}.md"),
-                    s,
+                    &s,
                     "hashplaceholder".to_string(),
                     "public/",
                     "site/",
@@ -61,8 +62,8 @@ Hello World
 
         let found = pages_in_section(
             "testing".to_string(),
-            minijinja::value::ViaDeserialize(pages.clone()),
-        )?;
+            minijinja::value::ViaDeserialize(pages),
+        );
         insta::assert_yaml_snapshot!(found);
 
         Ok(())

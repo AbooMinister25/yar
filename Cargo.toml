@@ -30,8 +30,8 @@ insta = { version = "1.43.1", features = ["yaml", "redactions"] }
 edition = "2024"
 
 [workspace.lints.clippy]
-must_use_candidate = "allow"
-missing-const-for-fn = "allow"
+pedantic = "warn"
+nursery = "warn"
 
 [lints]
 workspace = true

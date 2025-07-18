@@ -20,6 +20,7 @@ grass = "0.13.4"
 minijinja-contrib = { version = "2.11.0", features = ["datetime"] }
 url = { version = "2.5.4", features = ["serde"] }
 minify-html = "0.16.4"
+smol_str = "0.3.2"
 
 
 [dev-dependencies]

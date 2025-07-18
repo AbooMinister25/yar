@@ -91,7 +91,7 @@ mod tests {
     use super::*;
 
     fn make_pages() -> Result<Vec<Page>> {
-        let pages = Vec::from_iter(0..10)
+        let pages = (0..10).collect::<Vec<_>>()
             .iter()
             .map(|n| {
                 format!(
@@ -112,7 +112,7 @@ Hello World
             .map(|(n, s)| {
                 Page::new(
                     format!("site/_content/series/testing/post-{n}.md"),
-                    s,
+                    &s,
                     "hashplaceholder".to_string(),
                     "public/",
                     "site/",

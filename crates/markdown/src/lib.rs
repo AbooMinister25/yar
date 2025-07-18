@@ -1,3 +1,6 @@
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+
 mod shortcodes;
 
 use std::path::Path;
@@ -9,6 +12,7 @@ use pulldown_cmark::{
     CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd, html::push_html,
 };
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 use syntect::{
     highlighting::{Theme, ThemeSet},
     html::highlighted_html_for_string,
@@ -21,7 +25,7 @@ use crate::shortcodes::evaluate_all_shortcodes;
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct Frontmatter {
     pub title: String,
-    pub tags: Vec<String>,
+    pub tags: Vec<SmolStr>,
     pub template: Option<String>,
     pub date: Option<String>,
     pub updated: Option<String>,
@@ -44,7 +48,7 @@ pub struct TOCHeading {
 }
 
 impl TOCHeading {
-    fn new(id: Option<String>, text: String) -> Self {
+    const fn new(id: Option<String>, text: String) -> Self {
         Self { id, text }
     }
 
@@ -74,10 +78,10 @@ struct CodeBlock {
 }
 
 impl CodeBlock {
-    pub fn new(lang: String) -> Self {
+    pub const fn new(lang: String) -> Self {
         Self {
             lang,
-            text: "".into(),
+            text: String::new(),
         }
     }
 }
@@ -122,6 +126,7 @@ impl MarkdownRenderer {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     /// Parse markdown and create a `Document` form a given string.
     pub fn parse_from_string(&self, content: &str, env: &Environment) -> Result<Document> {
         let frontmatter = parse_frontmatter(content)?;
@@ -147,7 +152,7 @@ impl MarkdownRenderer {
             // If there are currently less than 150 characters of text that have been parsed, add the
             // node to the summary. Additionally, make sure that the summary doesn't include unclosed tags and the like.
             if character_count >= 150 && !matches!(summary_status, Summary::Complete) {
-                summary_status = Summary::FinalElement
+                summary_status = Summary::FinalElement;
             }
 
             let e = match event {
@@ -164,7 +169,7 @@ impl MarkdownRenderer {
                         let syntax = self
                             .syntax_set
                             .find_syntax_by_extension(&cb.lang)
-                            .unwrap_or(self.syntax_set.find_syntax_plain_text());
+                            .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
                         let mut html = highlighted_html_for_string(
                             &cb.text,
                             &self.syntax_set,
@@ -187,8 +192,8 @@ impl MarkdownRenderer {
                     ..
                 }) => {
                     current_heading = Some(TOCHeading::new(
-                        id.as_ref().map(|c| c.to_string()),
-                        "".to_string(),
+                        id.as_ref().map(std::string::ToString::to_string),
+                        String::new(),
                     ));
                     None
                 }
@@ -213,9 +218,7 @@ impl MarkdownRenderer {
                     }
 
                     let shortcode_event = if t.contains("{{! end !}}") {
-                        if !in_shortcode {
-                            panic!("Stray shortcode closing tag.")
-                        }
+                        assert!(in_shortcode, "Stray shortcode closing tag.");
 
                         current_shortcode.push_str(t);
                         in_shortcode = false;
@@ -234,23 +237,21 @@ impl MarkdownRenderer {
                         t
                     };
 
-                    if !in_shortcode {
-                        if let Some(cb) = &mut codeblock {
-                            cb.text.push_str(text);
-                            None
-                        } else if let Some(h) = &mut current_heading {
-                            h.text.push_str(text);
-                            None
-                        } else {
-                            if !in_frontmatter {
-                                character_count += text.len();
-                            }
-
-                            Some(shortcode_event.unwrap_or(event))
-                        }
-                    } else {
+                    if in_shortcode {
                         current_shortcode.push_str(text);
                         None
+                    } else if let Some(cb) = &mut codeblock {
+                        cb.text.push_str(text);
+                        None
+                    } else if let Some(h) = &mut current_heading {
+                        h.text.push_str(text);
+                        None
+                    } else {
+                        if !in_frontmatter {
+                            character_count += text.len();
+                        }
+
+                        Some(shortcode_event.unwrap_or(event))
                     }
                 }
                 Event::Code(ref s)
@@ -271,10 +272,10 @@ impl MarkdownRenderer {
                 Summary::FinalElement => {
                     summary_events.push(e.clone());
                     if matches!(e, Some(Event::End(_))) {
-                        summary_status = Summary::Complete
+                        summary_status = Summary::Complete;
                     }
                 }
-                _ => (),
+                Summary::Complete => (),
             }
 
             e

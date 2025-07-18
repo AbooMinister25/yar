@@ -16,7 +16,7 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new(path: PathBuf, raw_content: Vec<u8>, hash: String) -> Self {
+    pub const fn new(path: PathBuf, raw_content: Vec<u8>, hash: String) -> Self {
         Self {
             path,
             raw_content,
@@ -42,7 +42,7 @@ pub fn discover_entries<T: AsRef<Path>>(path: T, conn: &Connection) -> Result<Ve
 
         // Either a new file was created, or an existing file was changed.
         if hashes.is_empty() || hashes[0] != hash {
-            ret.push(Entry::new(path, content, hash))
+            ret.push(Entry::new(path, content, hash));
         }
     }
 
@@ -56,7 +56,7 @@ fn read_entries<T: AsRef<Path>>(path: T) -> Result<Vec<(PathBuf, Vec<u8>)>> {
         .filter(|e| !e.path().is_dir())
     {
         let content = fs::read(entry.path())?;
-        ret.push((entry.into_path(), content))
+        ret.push((entry.into_path(), content));
     }
 
     Ok(ret)

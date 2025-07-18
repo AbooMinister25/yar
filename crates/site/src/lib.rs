@@ -1,3 +1,6 @@
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+
 pub mod config;
 pub mod sql;
 
@@ -8,7 +11,7 @@ mod static_file;
 mod templates;
 mod utils;
 
-use std::{ffi::OsStr, fs, rc::Rc};
+use std::{collections::HashSet, ffi::OsStr, fs, rc::Rc};
 
 use chrono::Utc;
 use color_eyre::Result;
@@ -17,11 +20,15 @@ use entry::discover_entries;
 use markdown::MarkdownRenderer;
 use minijinja::{Environment, context};
 use rusqlite::Connection;
+use smol_str::SmolStr;
 
 use crate::{
     asset::Asset,
     page::Page,
-    sql::{get_pages, insert_or_update_asset, insert_or_update_page, insert_or_update_static_file},
+    sql::{
+        get_pages, get_tags, insert_or_update_asset, insert_or_update_page,
+        insert_or_update_static_file,
+    },
     static_file::StaticFile,
     templates::create_environment,
     utils::fs::ensure_directory,
@@ -35,11 +42,12 @@ pub struct Site<'a> {
     pages_to_build: Vec<Rc<Page>>,
     assets: Vec<Asset>,
     static_files: Vec<StaticFile>,
+    tags: HashSet<SmolStr>,
     environment: Environment<'a>,
     markdown_renderer: MarkdownRenderer,
 }
 
-impl<'a> Site<'a> {
+impl Site<'_> {
     /// Create a new site.
     pub fn new(conn: Connection, config: Config) -> Result<Self> {
         let markdown_renderer = MarkdownRenderer::new(
@@ -55,6 +63,7 @@ impl<'a> Site<'a> {
             pages_to_build: Vec::new(),
             assets: Vec::new(),
             static_files: Vec::new(),
+            tags: HashSet::new(),
             environment: env,
             markdown_renderer,
         })
@@ -69,6 +78,7 @@ impl<'a> Site<'a> {
         self.pages.clear();
         self.assets.clear();
         self.static_files.clear();
+        self.tags.clear();
 
         let entries = discover_entries(&self.config.site.root, &self.conn)?;
         println!("Discovered {} entries to build", entries.len());
@@ -76,20 +86,24 @@ impl<'a> Site<'a> {
         for entry in entries {
             match entry.path.extension().and_then(OsStr::to_str) {
                 Some("md") => {
-                    let page = Rc::new(Page::new(
+                    let page = Page::new(
                         entry.path,
-                        String::from_utf8(entry.raw_content)?,
+                        &String::from_utf8(entry.raw_content)?,
                         entry.hash,
                         &self.config.site.output_path,
                         &self.config.site.root,
                         &self.config.site.url,
                         &self.markdown_renderer,
                         &self.environment,
-                    )?);
-                    self.pages.push(Rc::clone(&page));
-                    self.pages_to_build.push(Rc::clone(&page));
+                    )?;
+                    let tags = page.document.frontmatter.tags.clone();
+                    self.tags.extend(tags);
+
+                    let page_rc = Rc::new(page);
+                    self.pages.push(Rc::clone(&page_rc));
+                    self.pages_to_build.push(Rc::clone(&page_rc));
                 }
-                Some("css") | Some("scss") | Some("js") => {
+                Some("css" | "scss" | "js") => {
                     let asset = Asset::new(
                         entry.path,
                         entry.hash,
@@ -108,7 +122,7 @@ impl<'a> Site<'a> {
                         &self.config.site.root,
                         &self.config.site.url,
                     )?;
-                    self.static_files.push(static_file)
+                    self.static_files.push(static_file);
                 }
             }
         }
@@ -120,8 +134,10 @@ impl<'a> Site<'a> {
                 .map(|p| p.path.as_path())
                 .collect(),
         )?;
-        self.pages
-            .extend(remaining_pages.into_iter().map(Rc::new));
+        self.pages.extend(remaining_pages.into_iter().map(Rc::new));
+
+        let tags = get_tags(&self.conn)?;
+        self.tags.extend(tags.iter().map(std::convert::Into::into));
 
         Ok(())
     }
@@ -130,7 +146,7 @@ impl<'a> Site<'a> {
     pub fn render(&self) -> Result<()> {
         ensure_directory(&self.config.site.output_path)?;
 
-        for page in self.pages.iter() {
+        for page in &self.pages {
             page.render(&self.pages, &self.environment)?;
         }
 

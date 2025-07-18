@@ -2,12 +2,12 @@ use std::path::{Path, PathBuf};
 
 use color_eyre::{Result, eyre::ContextCompat};
 use markdown::{Document, Frontmatter, SeriesInfo};
-use rusqlite::Connection;
+use rusqlite::{Connection, Transaction};
 use url::Url;
 
 use crate::{asset::Asset, page::Page, static_file::StaticFile};
 
-/// Set up SQLite database.
+/// Set up sqlite database.
 /// Create initial tables if they don't exist and acquire the connection.
 pub fn setup_sql() -> Result<Connection> {
     let conn = Connection::open("site.db")?;
@@ -71,6 +71,28 @@ pub fn setup_sql() -> Result<Connection> {
         (),
     )?;
 
+    conn.execute(
+        "
+        CREATE TABLE IF NOT EXISTS tags (
+            name TEXT NOT NULL PRIMARY KEY
+        )
+    ",
+        (),
+    )?;
+
+    conn.execute(
+        "
+        CREATE TABLE IF NOT EXISTS tags_pages (
+            tag_name TEXT NOT NULL,
+            page_path VARCHAR NOT NULL,
+            PRIMARY KEY (tag_name, page_path),
+            FOREIGN KEY (tag_name) REFERENCES tags(name),
+            FOREIGN KEY (page_path) REFERENCES pages(out_path)
+        )
+    ",
+        (),
+    )?;
+
     Ok(conn)
 }
 
@@ -95,6 +117,7 @@ pub fn get_hashes<P: AsRef<Path>>(conn: &Connection, path: P) -> Result<Vec<Stri
 /// Get all pages in the database.
 ///
 /// Excludes any pages with the paths provided.
+#[allow(clippy::needless_pass_by_value)]
 pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>> {
     let mut stmt = conn.prepare(
         "
@@ -165,11 +188,24 @@ pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>>
     for page in pages_iter {
         let p = page?;
         if !exclusions.contains(&p.path.as_path()) {
-            pages.push(p)
+            pages.push(p);
         }
     }
 
     Ok(pages)
+}
+
+/// Get all tags in the database
+pub fn get_tags(conn: &Connection) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT name FROM tags")?;
+    let mut rows = stmt.query([])?;
+
+    let mut tags = Vec::new();
+    while let Some(row) = rows.next()? {
+        tags.push(row.get(0)?);
+    }
+
+    Ok(tags)
 }
 
 /// Insert a page into the database. If it already exists, update the existing entry.
@@ -306,3 +342,32 @@ pub fn insert_or_update_static_file(conn: &Connection, static_file: &StaticFile)
 
     Ok(())
 }
+
+/// Given an array of tags, insert any tags that don't exist in the database into the database.
+pub fn insert_tags(conn: &mut Connection, tags: &[String]) -> Result<()> {
+    let mut tx = conn.transaction()?;
+    insert_tags_batch(&mut tx, tags)?;
+    tx.commit()?;
+
+    Ok(())
+}
+
+fn insert_tags_batch(tx: &mut Transaction, tags: &[String]) -> Result<()> {
+    let mut stmt = tx.prepare(
+        "
+        INSERT INTO tags (name) VALUES (?1)
+        ON CONFLICT (name) DO NOTHING
+        ",
+    )?;
+
+    for tag in tags {
+        stmt.execute((tag,))?;
+    }
+
+    Ok(())
+}
+
+// /// Insert tag map for page at given path.
+// pub fn insert_tagmaps(conn: &Connection, path: &Path, tags: &[String]) -> Result<()> {
+
+// }
