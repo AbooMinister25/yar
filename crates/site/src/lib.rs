@@ -18,7 +18,7 @@ use color_eyre::Result;
 use config::Config;
 use entry::discover_entries;
 use markdown::MarkdownRenderer;
-use minijinja::{Environment, context};
+use minijinja::{Environment, Value, context};
 use rusqlite::Connection;
 use smol_str::SmolStr;
 
@@ -138,6 +138,11 @@ impl Site<'_> {
 
         let tags = get_tags(&self.conn)?;
         self.tags.extend(tags.iter().map(std::convert::Into::into));
+
+        // TODO: I don't like that this is being added here, but we'll leave it for now. Find
+        // TODO: a more elegant fix later.
+        self.environment
+            .add_global("tags", Value::from_serialize(&self.tags));
 
         Ok(())
     }
