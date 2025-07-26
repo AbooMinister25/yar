@@ -1,16 +1,17 @@
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use color_eyre::Result;
 use color_eyre::eyre::ContextCompat;
 use markdown::{Document, MarkdownRenderer};
 use minify_html::{Cfg, minify};
-use minijinja::{Environment, context};
+use minijinja::{Environment, Value, context};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+use crate::templates::PageContext;
 use crate::utils::build_permalink;
 use crate::utils::fs::ensure_directory;
 
@@ -55,7 +56,7 @@ impl Page {
         })
     }
 
-    pub fn render(&self, index: &[Rc<Self>], env: &Environment) -> Result<()> {
+    pub fn render(&self, index: &[Arc<Self>], env: &Environment) -> Result<()> {
         ensure_directory(
             self.out_path
                 .parent()
@@ -66,8 +67,12 @@ impl Page {
         let template = frontmatter.template.as_ref().map_or("post.html", |v| v);
         let template = env.get_template(template)?;
 
-        let rendered_html =
-            template.render(context! { document => self.document, pages => index})?;
+        let ctx = Value::from_object(PageContext {
+            document: Value::from_serialize(&self.document),
+            pages: index.to_vec(),
+        });
+        let rendered_html = template.render(ctx)?;
+
         let cfg = Cfg::new();
         let minified = minify(rendered_html.as_bytes(), &cfg);
 

@@ -21,6 +21,8 @@ minijinja-contrib = { version = "2.11.0", features = ["datetime"] }
 url = { version = "2.5.4", features = ["serde"] }
 minify-html = "0.16.4"
 smol_str = { version = "0.3.2", features = ["serde"] }
+rayon = "1.10.0"
+crossbeam = "0.8.4"
 
 
 [dev-dependencies]

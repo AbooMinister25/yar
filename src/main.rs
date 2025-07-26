@@ -69,6 +69,7 @@ fn main() -> Result<()> {
 
         let elapsed = now.elapsed();
         println!("Built site in {elapsed:.2?}");
+        // fs::rename(tmp_dir.path(), original_output_path)?;
         copy_dir_all(tmp_dir.path().join("public"), original_output_path)?;
     }
 

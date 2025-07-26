@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use color_eyre::{Result, eyre::ContextCompat};
-use markdown::{Document, Frontmatter, SeriesInfo};
+use markdown::{Document, Frontmatter};
 use rusqlite::Connection;
 use url::Url;
 
@@ -35,9 +35,9 @@ pub fn setup_sql() -> Result<Connection> {
             title TEXT NOT NULL,
             tags JSON NOT NULL,
             template TEXT,
-            series_part INTEGER,
             slug TEXT,
             draft BOOLEAN NOT NULL,
+            requires JSON NOT NULL,
             entry VARCHAR NOT NULL,
             FOREIGN KEY(entry) REFERENCES entries(path)
         )
@@ -131,9 +131,9 @@ pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>>
         title, 
         tags, 
         template, 
-        series_part, 
         slug, 
-        draft, 
+        draft,
+        requires,
         entry
     FROM pages
     ",
@@ -142,11 +142,12 @@ pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>>
     let pages_iter = stmt.query_map([], |row| {
         let out_path: String = row.get(0)?;
         let permalink: String = row.get(1)?;
-        let series_part: Option<i32> = row.get(10)?;
         let tags: String = row.get(8)?;
         let parsed_tags = serde_json::from_str(&tags).expect("JSON should be valid.");
         let toc: String = row.get(5)?;
         let parsed_toc = serde_json::from_str(&toc).expect("JSON should be valid.");
+        let requires: String = row.get(12)?;
+        let parsed_requires = serde_json::from_str(&requires).expect("JSON should be valid.");
 
         let frontmatter = Frontmatter {
             title: row.get(7)?,
@@ -154,9 +155,9 @@ pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>>
             template: row.get(9)?,
             date: Some(row.get(2)?),
             updated: Some(row.get(3)?),
-            series: series_part.map(|n| SeriesInfo { part: n }),
-            slug: row.get(11)?,
-            draft: row.get(12)?,
+            slug: row.get(10)?,
+            draft: row.get(11)?,
+            requires: parsed_requires,
         };
 
         let document = Document {
@@ -210,8 +211,6 @@ pub fn get_tags(conn: &Connection) -> Result<Vec<String>> {
 
 /// Insert a page into the database. If it already exists, update the existing entry.
 pub fn insert_or_update_page(conn: &Connection, page: &Page) -> Result<()> {
-    let series_part = page.document.frontmatter.series.as_ref().map(|si| si.part);
-
     conn.execute(
         "
         INSERT INTO entries (path, hash) VALUES (?1, ?2)
@@ -226,7 +225,7 @@ pub fn insert_or_update_page(conn: &Connection, page: &Page) -> Result<()> {
     conn.execute(
         "
         INSERT INTO pages ( 
-            out_path, permalink, date, updated, content, toc, summary, title, tags, template, series_part, slug, draft, entry
+            out_path, permalink, date, updated, content, toc, summary, title, tags, template, slug, draft, requires, entry
         ) VALUES (
             ?1, ?2, datetime(?3), datetime(?4), ?5, json(?6), ?7, ?8, json(?9), ?10, ?11, ?12, ?13, ?14
         ) ON CONFLICT (out_path) DO UPDATE SET permalink = ?2,
@@ -238,9 +237,9 @@ pub fn insert_or_update_page(conn: &Connection, page: &Page) -> Result<()> {
             title = ?8,
             tags = json(?9),
             template = ?10,
-            series_part = ?11,
-            slug = ?12,
-            draft = ?13
+            slug = ?11,
+            draft = ?12,
+            requires = ?13
     ",
         (
             &page.out_path.to_str().context("Path should be valid unicode.")?,
@@ -253,9 +252,9 @@ pub fn insert_or_update_page(conn: &Connection, page: &Page) -> Result<()> {
             &page.document.frontmatter.title,
             &serde_json::to_string(&page.document.frontmatter.tags)?,
             &page.document.frontmatter.template,
-            &series_part,
             &page.document.frontmatter.slug,
             &page.document.frontmatter.draft,
+            &serde_json::to_string(&page.document.frontmatter.requires)?,
             &page.path.to_str().context("Path should be valid unicode.")?,
         ),
     )?;

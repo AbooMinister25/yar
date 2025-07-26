@@ -1,9 +1,12 @@
 mod functions;
 
-use color_eyre::Result;
-use minijinja::{Environment, context, path_loader};
+use std::sync::Arc;
 
-use crate::{config::Config, templates::functions::pages_in_section};
+use color_eyre::Result;
+use markdown::Document;
+use minijinja::{Environment, Value, context, path_loader, value::Object};
+
+use crate::{config::Config, page::Page, templates::functions::pages_in_section};
 
 const DEFAULT_404: &str = r#"
 <!DOCTYPE html?
@@ -59,6 +62,23 @@ const DEFAULT_SITEMAP: &str = r#"
 </urlset>
 "#;
 
+/// The context that is passed to pages when they are rendered.
+#[derive(Debug)]
+pub struct PageContext {
+    pub document: Value,
+    pub pages: Vec<Arc<Page>>,
+}
+
+impl Object for PageContext {
+    fn get_value(self: &Arc<Self>, field: &Value) -> Option<Value> {
+        match field.as_str()? {
+            "document" => Some(self.document.clone()),
+            "pages" => Some(Value::from_serialize(&self.pages)),
+            _ => None,
+        }
+    }
+}
+
 pub fn create_environment(config: &Config) -> Result<Environment<'static>> {
     let mut env = Environment::new();
     env.add_template("404.html", DEFAULT_404)?;
@@ -91,7 +111,8 @@ mod tests {
     use super::*;
 
     fn make_pages() -> Result<Vec<Page>> {
-        let pages = (0..10).collect::<Vec<_>>()
+        let pages = (0..10)
+            .collect::<Vec<_>>()
             .iter()
             .map(|n| {
                 format!(

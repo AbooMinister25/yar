@@ -11,14 +11,16 @@ mod static_file;
 mod templates;
 mod utils;
 
-use std::{collections::HashSet, ffi::OsStr, fs, rc::Rc};
+use std::{collections::HashSet, ffi::OsStr, fs, sync::Arc};
 
 use chrono::Utc;
 use color_eyre::Result;
 use config::Config;
+use crossbeam::channel::{Receiver, Sender, bounded};
 use entry::discover_entries;
 use markdown::MarkdownRenderer;
 use minijinja::{Environment, Value, context};
+use rayon::prelude::*;
 use rusqlite::Connection;
 use smol_str::SmolStr;
 
@@ -38,8 +40,8 @@ use crate::{
 pub struct Site<'a> {
     conn: Connection,
     config: Config,
-    pages: Vec<Rc<Page>>,
-    pages_to_build: Vec<Rc<Page>>,
+    pages: Vec<Arc<Page>>,
+    pages_to_build: Vec<Arc<Page>>,
     assets: Vec<Asset>,
     static_files: Vec<StaticFile>,
     tags: HashSet<SmolStr>,
@@ -74,6 +76,7 @@ impl Site<'_> {
     /// Keep in mind that if this is run without the previous iteration
     /// of the site being committed to the database with `Site.commit_to_db`,
     /// everything built in that iteration will be rebuilt.
+    #[allow(clippy::too_many_lines)]
     pub fn load(&mut self) -> Result<()> {
         self.pages.clear();
         self.assets.clear();
@@ -83,50 +86,111 @@ impl Site<'_> {
         let entries = discover_entries(&self.config.site.root, &self.conn)?;
         println!("Discovered {} entries to build", entries.len());
 
-        for entry in entries {
-            match entry.path.extension().and_then(OsStr::to_str) {
-                Some("md") => {
-                    let page = Page::new(
-                        entry.path,
-                        &String::from_utf8(entry.raw_content)?,
-                        entry.hash,
-                        &self.config.site.output_path,
-                        &self.config.site.root,
-                        &self.config.site.url,
-                        &self.markdown_renderer,
-                        &self.environment,
-                    )?;
-                    let tags = page.document.frontmatter.tags.clone();
-                    self.tags.extend(tags);
+        let (page_tx, page_rx): (Sender<Page>, Receiver<Page>) = bounded(100);
+        let (asset_tx, asset_rx) = bounded(100);
+        let (static_file_tx, static_file_rx) = bounded(100);
 
-                    let page_rc = Rc::new(page);
-                    self.pages.push(Rc::clone(&page_rc));
-                    self.pages_to_build.push(Rc::clone(&page_rc));
-                }
-                Some("css" | "scss" | "js") => {
-                    let asset = Asset::new(
-                        entry.path,
-                        entry.hash,
-                        &self.config.site.output_path,
-                        &self.config.site.root,
-                        &self.config.site.url,
-                    )?;
-                    self.assets.push(asset);
-                }
-                _ => {
-                    // Copy over any remaining extensions as-is.
-                    let static_file = StaticFile::new(
-                        entry.path,
-                        entry.hash,
-                        &self.config.site.output_path,
-                        &self.config.site.root,
-                        &self.config.site.url,
-                    )?;
-                    self.static_files.push(static_file);
-                }
+        let page_handle = std::thread::spawn(|| {
+            let mut pages = Vec::new();
+            let mut pages_to_build = Vec::new();
+            let mut tags: HashSet<SmolStr> = HashSet::new();
+
+            for page in page_rx.into_iter().map(Arc::new) {
+                let page_tags = page.document.frontmatter.tags.clone();
+                tags.extend(page_tags);
+
+                pages.push(Arc::clone(&page));
+                pages_to_build.push(Arc::clone(&page));
             }
-        }
 
+            (pages, pages_to_build, tags)
+        });
+
+        let asset_handle = std::thread::spawn(|| {
+            let mut assets = Vec::new();
+
+            for asset in asset_rx {
+                assets.push(asset);
+            }
+
+            assets
+        });
+
+        let static_file_handle = std::thread::spawn(|| {
+            let mut static_files = Vec::new();
+
+            for static_file in static_file_rx {
+                static_files.push(static_file);
+            }
+
+            static_files
+        });
+
+        entries
+            .into_par_iter()
+            .map(|entry| {
+                let page_tx = page_tx.clone();
+                let asset_tx = asset_tx.clone();
+                let static_file_tx = static_file_tx.clone();
+
+                match entry.path.extension().and_then(OsStr::to_str) {
+                    Some("md") => {
+                        let page = Page::new(
+                            entry.path,
+                            &String::from_utf8(entry.raw_content)?,
+                            entry.hash,
+                            &self.config.site.output_path,
+                            &self.config.site.root,
+                            &self.config.site.url,
+                            &self.markdown_renderer,
+                            &self.environment,
+                        )?;
+                        page_tx.send(page)?;
+                    }
+                    Some("css" | "scss" | "js") => {
+                        let asset = Asset::new(
+                            entry.path,
+                            entry.hash,
+                            &self.config.site.output_path,
+                            &self.config.site.root,
+                            &self.config.site.url,
+                        )?;
+                        asset_tx.send(asset)?;
+                    }
+                    _ => {
+                        // Copy over any remaining extensions as-is.
+                        let static_file = StaticFile::new(
+                            entry.path,
+                            entry.hash,
+                            &self.config.site.output_path,
+                            &self.config.site.root,
+                            &self.config.site.url,
+                        )?;
+                        static_file_tx.send(static_file)?;
+                    }
+                }
+
+                Ok(())
+            })
+            .collect::<Result<Vec<_>>>()?;
+
+        drop(page_tx);
+        drop(asset_tx);
+        drop(static_file_tx);
+
+        // Join the consumer threads.
+        let (pages, pages_to_build, tags) = page_handle.join().unwrap();
+        self.pages = pages;
+        self.pages_to_build = pages_to_build;
+        self.tags = tags;
+
+        let assets = asset_handle.join().unwrap();
+        self.assets = assets;
+
+        let static_files = static_file_handle.join().unwrap();
+        self.static_files = static_files;
+
+        // Get remaining pages (those that aren't being processed in this run of the static site generator) from the database.
         let remaining_pages = get_pages(
             &self.conn,
             self.pages_to_build
@@ -134,8 +198,9 @@ impl Site<'_> {
                 .map(|p| p.path.as_path())
                 .collect(),
         )?;
-        self.pages.extend(remaining_pages.into_iter().map(Rc::new));
+        self.pages.extend(remaining_pages.into_iter().map(Arc::new));
 
+        // Same as above, but for tags.
         let tags = get_tags(&self.conn)?;
         self.tags.extend(tags.iter().map(std::convert::Into::into));
 
@@ -144,6 +209,8 @@ impl Site<'_> {
         self.environment
             .add_global("tags", Value::from_serialize(&self.tags));
 
+        println!("Loaded entries");
+
         Ok(())
     }
 
@@ -151,17 +218,22 @@ impl Site<'_> {
     pub fn render(&self) -> Result<()> {
         ensure_directory(&self.config.site.output_path)?;
 
-        for page in &self.pages {
-            page.render(&self.pages, &self.environment)?;
-        }
+        let pages = &self.pages;
+        let environment = &self.environment;
+        self.pages_to_build
+            .par_iter()
+            .map(|p| p.render(pages, environment))
+            .collect::<Result<Vec<_>>>()?;
 
-        for asset in &self.assets {
-            asset.render()?;
-        }
+        self.assets
+            .par_iter()
+            .map(Asset::render)
+            .collect::<Result<Vec<_>>>()?;
 
-        for static_file in &self.static_files {
-            static_file.render()?;
-        }
+        self.static_files
+            .par_iter()
+            .map(StaticFile::render)
+            .collect::<Result<Vec<_>>>()?;
 
         // Generate 404 page.
         let out_path = self.config.site.output_path.join("404.html");
@@ -190,6 +262,8 @@ impl Site<'_> {
         })?;
         fs::write(out_path, rendered)?;
 
+        println!("Wrote site to disk");
+
         Ok(())
     }
 
@@ -214,6 +288,8 @@ impl Site<'_> {
         }
 
         tx.commit()?;
+
+        println!("Committed site state to database.");
 
         Ok(())
     }

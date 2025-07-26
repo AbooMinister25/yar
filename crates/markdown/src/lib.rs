@@ -29,16 +29,11 @@ pub struct Frontmatter {
     pub template: Option<String>,
     pub date: Option<String>,
     pub updated: Option<String>,
-    pub series: Option<SeriesInfo>,
     pub slug: Option<String>,
     #[serde(default)]
     pub draft: bool,
-}
-
-/// Details about a series that a post belongs to, if any.
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Clone)]
-pub struct SeriesInfo {
-    pub part: i32,
+    #[serde(default)]
+    pub requires: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
