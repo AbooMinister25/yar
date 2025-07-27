@@ -3,7 +3,6 @@ mod functions;
 use std::sync::Arc;
 
 use color_eyre::Result;
-use markdown::Document;
 use minijinja::{Environment, Value, context, path_loader, value::Object};
 
 use crate::{config::Config, page::Page, templates::functions::pages_in_section};
