@@ -11,7 +11,7 @@ mod static_file;
 mod templates;
 mod utils;
 
-use std::{collections::HashSet, ffi::OsStr, fs, sync::Arc};
+use std::{collections::HashSet, ffi::OsStr, fs, io, sync::Arc};
 
 use chrono::Utc;
 use color_eyre::Result;
@@ -28,11 +28,11 @@ use crate::{
     asset::Asset,
     page::Page,
     sql::{
-        get_pages, get_tags, insert_or_update_asset, insert_or_update_page,
-        insert_or_update_static_file, insert_tag,
+        get_pages, get_tags, get_template_pages, insert_or_update_asset, insert_or_update_page,
+        insert_or_update_static_file, insert_or_update_template_page, insert_tag,
     },
     static_file::StaticFile,
-    templates::create_environment,
+    templates::{create_environment, pagination::Paginated},
     utils::fs::ensure_directory,
 };
 
@@ -44,6 +44,7 @@ pub struct Site<'a> {
     pages_to_build: Vec<Arc<Page>>,
     assets: Vec<Asset>,
     static_files: Vec<StaticFile>,
+    template_pages: HashSet<Paginated>,
     tags: HashSet<SmolStr>,
     environment: Environment<'a>,
     markdown_renderer: MarkdownRenderer,
@@ -65,6 +66,7 @@ impl Site<'_> {
             pages_to_build: Vec::new(),
             assets: Vec::new(),
             static_files: Vec::new(),
+            template_pages: HashSet::new(),
             tags: HashSet::new(),
             environment: env,
             markdown_renderer,
@@ -81,6 +83,7 @@ impl Site<'_> {
         self.pages.clear();
         self.assets.clear();
         self.static_files.clear();
+        self.template_pages.clear();
         self.tags.clear();
 
         let entries = discover_entries(&self.config.site.root, &self.conn)?;
@@ -89,6 +92,7 @@ impl Site<'_> {
         let (page_tx, page_rx): (Sender<Page>, Receiver<Page>) = bounded(100);
         let (asset_tx, asset_rx) = bounded(100);
         let (static_file_tx, static_file_rx) = bounded(100);
+        let (template_page_tx, template_page_rx) = bounded(100);
 
         let page_handle = std::thread::spawn(|| {
             let mut pages = Vec::new();
@@ -126,6 +130,16 @@ impl Site<'_> {
             static_files
         });
 
+        let template_page_handle = std::thread::spawn(|| {
+            let mut template_pages = HashSet::new();
+
+            for template_page in template_page_rx {
+                template_pages.insert(template_page);
+            }
+
+            template_pages
+        });
+
         entries
             .into_par_iter()
             .map(|entry| {
@@ -157,6 +171,17 @@ impl Site<'_> {
                         )?;
                         asset_tx.send(asset)?;
                     }
+                    Some("html") => {
+                        let template_page = Paginated::new(
+                            &String::from_utf8(entry.raw_content)?,
+                            entry.hash,
+                            entry.path,
+                            &self.config.site.output_path,
+                            &self.config.site.root,
+                            &self.config.site.url,
+                        )?;
+                        template_page_tx.send(template_page)?;
+                    }
                     _ => {
                         // Copy over any remaining extensions as-is.
                         let static_file = StaticFile::new(
@@ -177,18 +202,30 @@ impl Site<'_> {
         drop(page_tx);
         drop(asset_tx);
         drop(static_file_tx);
+        drop(template_page_tx);
 
         // Join the consumer threads.
-        let (pages, pages_to_build, tags) = page_handle.join().unwrap();
+        let (pages, pages_to_build, tags) = page_handle
+            .join()
+            .map_err(|e| io::Error::other(format!("Collector thread panicked: {e:?}")))?;
         self.pages = pages;
         self.pages_to_build = pages_to_build;
         self.tags = tags;
 
-        let assets = asset_handle.join().unwrap();
+        let assets = asset_handle
+            .join()
+            .map_err(|e| io::Error::other(format!("Collector thread panicked: {e:?}")))?;
         self.assets = assets;
 
-        let static_files = static_file_handle.join().unwrap();
+        let static_files = static_file_handle
+            .join()
+            .map_err(|e| io::Error::other(format!("Collector thread panicked: {e:?}")))?;
         self.static_files = static_files;
+
+        let template_pages = template_page_handle
+            .join()
+            .map_err(|e| io::Error::other(format!("Collector thread panicked: {e:?}")))?;
+        self.template_pages = template_pages;
 
         // Get remaining pages (those that aren't being processed in this run of the static site generator) from the database.
         let remaining_pages = get_pages(
@@ -202,7 +239,18 @@ impl Site<'_> {
 
         // Same as above, but for tags.
         let tags = get_tags(&self.conn)?;
-        self.tags.extend(tags.iter().map(std::convert::Into::into));
+        let it = tags.iter().map(std::convert::Into::into);
+        let hs = it.collect::<HashSet<_>>();
+
+        // Find all the newly created tags and queue pages that depend on them for a rebuild.
+        // TODO: replace this when I create a more sophisticated dependency system.
+        let mut difference = self.tags.difference(&hs).peekable();
+        if difference.peek().is_some() {
+            let pag = get_template_pages(&self.conn, "tags")?;
+            self.template_pages.extend(pag);
+        }
+
+        self.tags.extend(hs);
 
         // TODO: I don't like that this is being added here, but we'll leave it for now. Find
         // TODO: a more elegant fix later.
@@ -233,6 +281,11 @@ impl Site<'_> {
         self.static_files
             .par_iter()
             .map(StaticFile::render)
+            .collect::<Result<Vec<_>>>()?;
+
+        self.template_pages
+            .par_iter()
+            .map(|t| t.render(environment))
             .collect::<Result<Vec<_>>>()?;
 
         // Generate 404 page.
@@ -281,6 +334,10 @@ impl Site<'_> {
 
         for static_file in &self.static_files {
             insert_or_update_static_file(&tx, static_file)?;
+        }
+
+        for template_page in &self.template_pages {
+            insert_or_update_template_page(&tx, template_page)?;
         }
 
         for tag in &self.tags {

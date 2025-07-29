@@ -50,11 +50,11 @@ pub struct HooksConfig {
     /// Hooks that are run once the static site generator has finished processing.
     ///
     /// Can be used for various kinds of postprocessing.
-    pub post: Vec<Post>,
+    pub post: Vec<PostHook>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Post {
+pub struct PostHook {
     /// The command to run.
     pub cmd: String,
     /// A glob pattern specifying what files the command is run on.

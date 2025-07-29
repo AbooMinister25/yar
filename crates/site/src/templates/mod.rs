@@ -1,3 +1,5 @@
+pub mod pagination;
+
 mod functions;
 
 use std::sync::Arc;
@@ -68,6 +70,16 @@ pub struct PageContext {
     pub pages: Vec<Arc<Page>>,
 }
 
+// /// The global site context passed to every page.
+// #[derive(Debug)]
+// pub struct SiteContext {
+//     pub url: Url,
+//     pub authors: Option<Vec<String>>,
+//     pub title: Option<String>,
+//     pub description: Option<String>,
+//     pub pages: Vec<Arc<Page>>,
+// }
+
 impl Object for PageContext {
     fn get_value(self: &Arc<Self>, field: &Value) -> Option<Value> {
         match field.as_str()? {
@@ -80,6 +92,7 @@ impl Object for PageContext {
 
 pub fn create_environment(config: &Config) -> Result<Environment<'static>> {
     let mut env = Environment::new();
+
     env.add_template("404.html", DEFAULT_404)?;
     env.add_template("atom.xml", DEFAULT_ATOM_FEED)?;
     env.add_template("sitemap.xml", DEFAULT_SITEMAP)?;

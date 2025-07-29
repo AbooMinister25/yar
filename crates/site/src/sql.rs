@@ -5,7 +5,12 @@ use markdown::{Document, Frontmatter};
 use rusqlite::Connection;
 use url::Url;
 
-use crate::{asset::Asset, page::Page, static_file::StaticFile};
+use crate::{
+    asset::Asset,
+    page::Page,
+    static_file::StaticFile,
+    templates::pagination::{MetaFrontmatter, Paginated},
+};
 
 /// Set up sqlite database.
 /// Create initial tables if they don't exist and acquire the connection.
@@ -64,6 +69,22 @@ pub fn setup_sql() -> Result<Connection> {
             out_path VARCHAR NOT NULL PRIMARY KEY,
             permalink TEXT NOT NULL,
             content BLOB NOT NULL,
+            entry VARCHAR NOT NULL,
+            FOREIGN KEY(entry) REFERENCES entries(path)
+        )
+    ",
+        (),
+    )?;
+
+    conn.execute(
+        "
+        CREATE TABLE IF NOT EXISTS template_pages (
+            out_path VARCHAR NOT NULL PRIMARY KEY,
+            permalink TEXT NOT NULL,
+            content BLOB NOT NULL,
+            from_var STRING NOT NULL,
+            every INTEGER NOT NULL,
+            name_template STRING,
             entry VARCHAR NOT NULL,
             FOREIGN KEY(entry) REFERENCES entries(path)
         )
@@ -138,6 +159,7 @@ pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>>
     FROM pages
     ",
     )?;
+    let mut entry_stmt = conn.prepare("SELECT hash FROM entries WHERE path = ?")?;
 
     let pages_iter = stmt.query_map([], |row| {
         let out_path: String = row.get(0)?;
@@ -170,7 +192,6 @@ pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>>
         };
 
         let entry_path: String = row.get(13)?;
-        let mut entry_stmt = conn.prepare("SELECT hash FROM entries WHERE path = ?")?;
         let hash = entry_stmt
             .query_map([&entry_path], |row| row.get(0))?
             .next()
@@ -194,6 +215,63 @@ pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>>
     }
 
     Ok(pages)
+}
+
+/// Get all template pages that depend on the given variable
+pub fn get_template_pages(conn: &Connection, variable: &str) -> Result<Vec<Paginated>> {
+    let mut stmt = conn.prepare(
+        "
+    SELECT out_path, 
+        permalink, 
+        content,
+        from_var,
+        every,
+        name_template,
+        entry
+    FROM template_pages
+    WHERE from_var = ?
+    ",
+    )?;
+    let mut entry_stmt = conn.prepare("SELECT hash FROM entries WHERE path = ?")?;
+
+    let templates_iter = stmt.query_map([variable], |row| {
+        let out_path: String = row.get(0)?;
+        let permalink: String = row.get(1)?;
+        let content: String = row.get(2)?;
+        let from: String = row.get(3)?;
+        let every: usize = row.get(4)?;
+        let name_template: Option<String> = row.get(5)?;
+        let entry_path: String = row.get(6)?;
+
+        let hash = entry_stmt
+            .query_map([&entry_path], |row| row.get(0))?
+            .next()
+            .expect("No corresponding entry for page in database?")?;
+
+        let frontmatter = MetaFrontmatter {
+            from,
+            every,
+            name_template,
+        };
+
+        let paginated = Paginated {
+            path: entry_path.into(),
+            source_hash: hash,
+            out_path: out_path.into(),
+            permalink: Url::parse(&permalink).expect("URL should be valid."),
+            content,
+            frontmatter,
+        };
+
+        Ok(paginated)
+    })?;
+
+    let mut template_pages = Vec::new();
+    for template in templates_iter {
+        template_pages.push(template?);
+    }
+
+    Ok(template_pages)
 }
 
 /// Get all tags in the database
@@ -333,6 +411,52 @@ pub fn insert_or_update_static_file(conn: &Connection, static_file: &StaticFile)
             &static_file.permalink.as_str(),
             &static_file.content,
             &static_file
+                .path
+                .to_str()
+                .context("Path should be valid unicode")?,
+        ),
+    )?;
+
+    Ok(())
+}
+
+/// Insert a template page into the database. If it already exists, update the existing entry.
+pub fn insert_or_update_template_page(conn: &Connection, template_page: &Paginated) -> Result<()> {
+    conn.execute(
+        "
+        INSERT INTO entries (path, hash) VALUES (?1, ?2)
+        ON CONFLICT (path) DO UPDATE SET hash = (?2)
+        ",
+        (
+            &template_page
+                .path
+                .to_str()
+                .context("Path should be valid unicode")?,
+            &template_page.source_hash,
+        ),
+    )?;
+
+    conn.execute(
+        "
+        INSERT INTO template_pages (out_path, permalink, content, from_var, every, name_template, entry)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        ON CONFLICT (out_path) DO UPDATE SET permalink = ?2,
+            content = ?3,
+            from_var = ?4,
+            every = ?5,
+            name_template = ?6
+        ",
+        (
+            &template_page
+                .out_path
+                .to_str()
+                .context("Path should be valid unicode")?,
+            &template_page.permalink.as_str(),
+            &template_page.content,
+            &template_page.frontmatter.from,
+            &template_page.frontmatter.every,
+            &template_page.frontmatter.name_template,
+            &template_page
                 .path
                 .to_str()
                 .context("Path should be valid unicode")?,
