@@ -2,17 +2,22 @@ use std::{
     fs,
     hash::Hash,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use color_eyre::{
     Result,
     eyre::{ContextCompat, OptionExt},
 };
-use minijinja::{Environment, context};
+use minijinja::{Environment, Value, context};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::utils::{build_permalink, fs::ensure_directory};
+use crate::{
+    page::Page,
+    templates::PageContext,
+    utils::{build_permalink, fs::ensure_directory},
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Paginated {
@@ -30,6 +35,8 @@ pub struct MetaFrontmatter {
     pub from: String,
     pub every: usize,
     pub name_template: Option<String>,
+    #[serde(default)]
+    pub additional_dependencies: Vec<String>,
 }
 
 /// The pagination context passed to every meta template.
@@ -69,7 +76,7 @@ impl Paginated {
     ///
     /// TODO: currently, only collections of strings can be paginated over. In the future,
     /// TODO: maybe something like `minijinja`s `DynObject` could be used to ease this restriction.
-    pub fn render(&self, env: &Environment) -> Result<()> {
+    pub fn render(&self, index: &[Arc<Page>], env: &Environment) -> Result<()> {
         // Get global value that this template paginates on.
         let value = env
             .globals()
@@ -96,7 +103,14 @@ impl Paginated {
                 next: None,
                 previous: None,
             };
-            let rendered = template.render(context! { pagination => pag })?;
+            let ctx = Value::from_object(PageContext {
+                pages: index.to_vec(),
+            });
+
+            let rendered = template.render(context! {
+                pagination => pag, ..ctx
+            })?;
+
             let name = name_expr
                 .as_ref()
                 .map(|e| e.eval(context! { pagination => pag }))

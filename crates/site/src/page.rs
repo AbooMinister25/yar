@@ -7,7 +7,7 @@ use color_eyre::Result;
 use color_eyre::eyre::ContextCompat;
 use markdown::{Document, MarkdownRenderer};
 use minify_html::{Cfg, minify};
-use minijinja::{Environment, Value};
+use minijinja::{Environment, Value, context};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -68,10 +68,11 @@ impl Page {
         let template = env.get_template(template)?;
 
         let ctx = Value::from_object(PageContext {
-            document: Value::from_serialize(&self.document),
             pages: index.to_vec(),
         });
-        let rendered_html = template.render(ctx)?;
+        let rendered_html = template.render(context! {
+            document => self.document,  ..ctx
+        })?;
 
         let cfg = Cfg::new();
         let minified = minify(rendered_html.as_bytes(), &cfg);

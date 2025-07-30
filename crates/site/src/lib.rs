@@ -252,6 +252,9 @@ impl Site<'_> {
 
         self.tags.extend(hs);
 
+        let depends_on_pages = get_template_pages(&self.conn, "pages")?;
+        self.template_pages.extend(depends_on_pages);
+
         // TODO: I don't like that this is being added here, but we'll leave it for now. Find
         // TODO: a more elegant fix later.
         self.environment
@@ -285,7 +288,7 @@ impl Site<'_> {
 
         self.template_pages
             .par_iter()
-            .map(|t| t.render(environment))
+            .map(|t| t.render(pages, environment))
             .collect::<Result<Vec<_>>>()?;
 
         // Generate 404 page.

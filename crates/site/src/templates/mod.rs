@@ -5,9 +5,14 @@ mod functions;
 use std::sync::Arc;
 
 use color_eyre::Result;
+use markdown::Document;
 use minijinja::{Environment, Value, context, path_loader, value::Object};
 
-use crate::{config::Config, page::Page, templates::functions::pages_in_section};
+use crate::{
+    config::Config,
+    page::Page,
+    templates::{functions::pages_in_section, pagination::PaginationContext},
+};
 
 const DEFAULT_404: &str = r#"
 <!DOCTYPE html?
@@ -66,24 +71,12 @@ const DEFAULT_SITEMAP: &str = r#"
 /// The context that is passed to pages when they are rendered.
 #[derive(Debug)]
 pub struct PageContext {
-    pub document: Value,
     pub pages: Vec<Arc<Page>>,
 }
-
-// /// The global site context passed to every page.
-// #[derive(Debug)]
-// pub struct SiteContext {
-//     pub url: Url,
-//     pub authors: Option<Vec<String>>,
-//     pub title: Option<String>,
-//     pub description: Option<String>,
-//     pub pages: Vec<Arc<Page>>,
-// }
 
 impl Object for PageContext {
     fn get_value(self: &Arc<Self>, field: &Value) -> Option<Value> {
         match field.as_str()? {
-            "document" => Some(self.document.clone()),
             "pages" => Some(Value::from_serialize(&self.pages)),
             _ => None,
         }

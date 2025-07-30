@@ -85,6 +85,7 @@ pub fn setup_sql() -> Result<Connection> {
             from_var STRING NOT NULL,
             every INTEGER NOT NULL,
             name_template STRING,
+            additional_dependencies JSON NOT NULL,
             entry VARCHAR NOT NULL,
             FOREIGN KEY(entry) REFERENCES entries(path)
         )
@@ -227,9 +228,11 @@ pub fn get_template_pages(conn: &Connection, variable: &str) -> Result<Vec<Pagin
         from_var,
         every,
         name_template,
+        additional_dependencies,
         entry
     FROM template_pages
-    WHERE from_var = ?
+    WHERE from_var = ?1
+    OR EXISTS (SELECT 1 FROM json_each(additional_dependencies) WHERE value = ?1) 
     ",
     )?;
     let mut entry_stmt = conn.prepare("SELECT hash FROM entries WHERE path = ?")?;
@@ -241,7 +244,10 @@ pub fn get_template_pages(conn: &Connection, variable: &str) -> Result<Vec<Pagin
         let from: String = row.get(3)?;
         let every: usize = row.get(4)?;
         let name_template: Option<String> = row.get(5)?;
-        let entry_path: String = row.get(6)?;
+        let additional_deps: String = row.get(6)?;
+        let parsed_additional_deps =
+            serde_json::from_str(&additional_deps).expect("JSON should be valid.");
+        let entry_path: String = row.get(7)?;
 
         let hash = entry_stmt
             .query_map([&entry_path], |row| row.get(0))?
@@ -252,6 +258,7 @@ pub fn get_template_pages(conn: &Connection, variable: &str) -> Result<Vec<Pagin
             from,
             every,
             name_template,
+            additional_dependencies: parsed_additional_deps,
         };
 
         let paginated = Paginated {
@@ -438,13 +445,14 @@ pub fn insert_or_update_template_page(conn: &Connection, template_page: &Paginat
 
     conn.execute(
         "
-        INSERT INTO template_pages (out_path, permalink, content, from_var, every, name_template, entry)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+        INSERT INTO template_pages (out_path, permalink, content, from_var, every, name_template, additional_dependencies, entry)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
         ON CONFLICT (out_path) DO UPDATE SET permalink = ?2,
             content = ?3,
             from_var = ?4,
             every = ?5,
-            name_template = ?6
+            name_template = ?6,
+            additional_dependencies = ?7
         ",
         (
             &template_page
@@ -456,6 +464,7 @@ pub fn insert_or_update_template_page(conn: &Connection, template_page: &Paginat
             &template_page.frontmatter.from,
             &template_page.frontmatter.every,
             &template_page.frontmatter.name_template,
+            &serde_json::to_string(&template_page.frontmatter.additional_dependencies)?,
             &template_page
                 .path
                 .to_str()
