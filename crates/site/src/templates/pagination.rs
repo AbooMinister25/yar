@@ -9,6 +9,7 @@ use color_eyre::{
     Result,
     eyre::{ContextCompat, OptionExt},
 };
+use minify_html::{Cfg, minify};
 use minijinja::{Environment, Value, context};
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -120,7 +121,10 @@ impl Paginated {
             let out = self.out_path.join(name).join("index.html");
             ensure_directory(out.parent().context("Path should have a parent")?)?;
 
-            fs::write(out, rendered)?;
+            let cfg = Cfg::new();
+            let minified = minify(rendered.as_bytes(), &cfg);
+
+            fs::write(out, minified)?;
         }
 
         Ok(())
