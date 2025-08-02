@@ -11,6 +11,7 @@ use color_eyre::{
 };
 use minify_html::{Cfg, minify};
 use minijinja::{Environment, Value, context};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -98,34 +99,40 @@ impl Paginated {
             .map(|s| env.compile_expression(s))
             .transpose()?;
 
-        for (idx, chunk) in items.chunks(self.frontmatter.every).enumerate() {
-            let pag = PaginationContext {
-                items: chunk.into(),
-                next: None,
-                previous: None,
-            };
-            let ctx = Value::from_object(PageContext {
-                pages: index.to_vec(),
-            });
+        items
+            .par_chunks(self.frontmatter.every)
+            .enumerate()
+            .map(|(idx, chunk)| {
+                let pag = PaginationContext {
+                    items: chunk.into(),
+                    next: None,
+                    previous: None,
+                };
+                let ctx = Value::from_object(PageContext {
+                    pages: index.to_vec(),
+                });
 
-            let rendered = template.render(context! {
-                pagination => pag, ..ctx
-            })?;
+                let rendered = template.render(context! {
+                    pagination => pag, ..ctx
+                })?;
 
-            let name = name_expr
-                .as_ref()
-                .map(|e| e.eval(context! { pagination => pag }))
-                .transpose()?
-                .map_or(idx.to_string(), |v| v.to_string());
+                let name = name_expr
+                    .as_ref()
+                    .map(|e| e.eval(context! { pagination => pag }))
+                    .transpose()?
+                    .map_or(idx.to_string(), |v| v.to_string());
 
-            let out = self.out_path.join(name).join("index.html");
-            ensure_directory(out.parent().context("Path should have a parent")?)?;
+                let out = self.out_path.join(name).join("index.html");
+                ensure_directory(out.parent().context("Path should have a parent")?)?;
 
-            let cfg = Cfg::new();
-            let minified = minify(rendered.as_bytes(), &cfg);
+                let cfg = Cfg::new();
+                let minified = minify(rendered.as_bytes(), &cfg);
 
-            fs::write(out, minified)?;
-        }
+                fs::write(out, minified)?;
+
+                Ok(())
+            })
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(())
     }
