@@ -45,7 +45,7 @@ fn main() -> Result<()> {
 
         let mut config: Config = Figment::from(Serialized::defaults(Config::default()))
             .merge(Toml::file("Config.toml"))
-            .join(("development", dev))
+            .join(("site.development", dev))
             .extract()?;
 
         // Build site in a temporary directory and copy it over once everything is built

@@ -271,8 +271,10 @@ impl Site<'_> {
 
         let pages = &self.pages;
         let environment = &self.environment;
+        let dev = self.config.site.development;
         self.pages_to_build
             .par_iter()
+            .filter(|p| dev || !p.document.frontmatter.draft)
             .map(|p| p.render(pages, environment))
             .collect::<Result<Vec<_>>>()?;
 
@@ -288,6 +290,7 @@ impl Site<'_> {
 
         self.template_pages
             .par_iter()
+            .filter(|t| dev || !t.frontmatter.draft)
             .map(|t| t.render(pages, environment))
             .collect::<Result<Vec<_>>>()?;
 
