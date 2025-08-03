@@ -32,7 +32,7 @@ use crate::{
         insert_or_update_static_file, insert_or_update_template_page, insert_tag,
     },
     static_file::StaticFile,
-    templates::{create_environment, pagination::Paginated},
+    templates::{create_environment, template_page::TemplatePage},
     utils::fs::ensure_directory,
 };
 
@@ -44,7 +44,7 @@ pub struct Site<'a> {
     pages_to_build: Vec<Arc<Page>>,
     assets: Vec<Asset>,
     static_files: Vec<StaticFile>,
-    template_pages: HashSet<Paginated>,
+    template_pages: HashSet<TemplatePage>,
     tags: HashSet<SmolStr>,
     environment: Environment<'a>,
     markdown_renderer: MarkdownRenderer,
@@ -172,7 +172,7 @@ impl Site<'_> {
                         asset_tx.send(asset)?;
                     }
                     Some("html") => {
-                        let template_page = Paginated::new(
+                        let template_page = TemplatePage::new(
                             &String::from_utf8(entry.raw_content)?,
                             entry.hash,
                             entry.path,

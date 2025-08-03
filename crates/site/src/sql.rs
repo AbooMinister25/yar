@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use chrono::{DateTime, Utc};
 use color_eyre::{Result, eyre::ContextCompat};
 use markdown::{Document, Frontmatter};
 use rusqlite::Connection;
@@ -9,7 +10,7 @@ use crate::{
     asset::Asset,
     page::Page,
     static_file::StaticFile,
-    templates::pagination::{MetaFrontmatter, Paginated},
+    templates::template_page::{Pagination, TPFrontmatter, TemplatePage},
 };
 
 /// Set up sqlite database.
@@ -82,10 +83,15 @@ pub fn setup_sql() -> Result<Connection> {
             out_path VARCHAR NOT NULL PRIMARY KEY,
             permalink TEXT NOT NULL,
             content BLOB NOT NULL,
-            from_var STRING NOT NULL,
-            every INTEGER NOT NULL,
-            name_template STRING,
-            additional_dependencies JSON NOT NULL,
+            title TEXT NOT NULL,
+            date TEXT NOT NULL,
+            updated TEXT NOT NULL,
+            slug TEXT,
+            draft BOOLEAN NOT NULL,
+            dependencies JSON NOT NULL,
+            pagination_from TEXT,
+            pagination_every INTEGER,
+            pagination_name_template TEXT,
             entry VARCHAR NOT NULL,
             FOREIGN KEY(entry) REFERENCES entries(path)
         )
@@ -219,20 +225,25 @@ pub fn get_pages(conn: &Connection, exclusions: Vec<&Path>) -> Result<Vec<Page>>
 }
 
 /// Get all template pages that depend on the given variable
-pub fn get_template_pages(conn: &Connection, variable: &str) -> Result<Vec<Paginated>> {
+pub fn get_template_pages(conn: &Connection, variable: &str) -> Result<Vec<TemplatePage>> {
     let mut stmt = conn.prepare(
         "
     SELECT out_path, 
-        permalink, 
+        permalink,
         content,
-        from_var,
-        every,
-        name_template,
-        additional_dependencies,
+        title,
+        date,
+        updated,
+        slug,
+        draft,
+        dependencies,
+        pagination_from,
+        pagination_every,
+        pagination_name_template,
         entry
     FROM template_pages
-    WHERE from_var = ?1
-    OR EXISTS (SELECT 1 FROM json_each(additional_dependencies) WHERE value = ?1) 
+    WHERE pagination_from = ?1
+    OR EXISTS (SELECT 1 FROM json_each(dependencies) WHERE value = ?1) 
     ",
     )?;
     let mut entry_stmt = conn.prepare("SELECT hash FROM entries WHERE path = ?")?;
@@ -241,36 +252,53 @@ pub fn get_template_pages(conn: &Connection, variable: &str) -> Result<Vec<Pagin
         let out_path: String = row.get(0)?;
         let permalink: String = row.get(1)?;
         let content: String = row.get(2)?;
-        let from: String = row.get(3)?;
-        let every: usize = row.get(4)?;
-        let name_template: Option<String> = row.get(5)?;
-        let additional_deps: String = row.get(6)?;
-        let parsed_additional_deps =
-            serde_json::from_str(&additional_deps).expect("JSON should be valid.");
-        let entry_path: String = row.get(7)?;
+        let title: String = row.get(3)?;
+        let date: DateTime<Utc> = row.get(4)?;
+        let updated: DateTime<Utc> = row.get(5)?;
+        let slug: Option<String> = row.get(6)?;
+        let draft: bool = row.get(7)?;
+        let dependencies_str: String = row.get(8)?;
+        let dependencies = serde_json::from_str(&dependencies_str).expect("JSON should be valid.");
+        let from: Option<String> = row.get(9)?;
+        let every: Option<usize> = row.get(10)?;
+        let name_template: Option<String> = row.get(11)?;
+        let entry_path: String = row.get(12)?;
 
         let hash = entry_stmt
             .query_map([&entry_path], |row| row.get(0))?
             .next()
             .expect("No corresponding entry for page in database?")?;
 
-        let frontmatter = MetaFrontmatter {
-            from,
-            every,
-            name_template,
-            additional_dependencies: parsed_additional_deps,
+        let pagination = if let (Some(f), Some(e)) = (from, every) {
+            Some(Pagination {
+                from: f,
+                every: e,
+                name_template,
+            })
+        } else {
+            None
         };
 
-        let paginated = Paginated {
-            path: entry_path.into(),
+        let frontmatter = TPFrontmatter {
+            title,
+            date,
+            updated,
+            slug,
+            draft,
+            dependencies,
+            pagination,
+        };
+
+        let template_page = TemplatePage {
+            path: PathBuf::from(entry_path),
             source_hash: hash,
-            out_path: out_path.into(),
+            out_path: PathBuf::from(out_path),
             permalink: Url::parse(&permalink).expect("URL should be valid."),
             content,
             frontmatter,
         };
 
-        Ok(paginated)
+        Ok(template_page)
     })?;
 
     let mut template_pages = Vec::new();
@@ -428,7 +456,10 @@ pub fn insert_or_update_static_file(conn: &Connection, static_file: &StaticFile)
 }
 
 /// Insert a template page into the database. If it already exists, update the existing entry.
-pub fn insert_or_update_template_page(conn: &Connection, template_page: &Paginated) -> Result<()> {
+pub fn insert_or_update_template_page(
+    conn: &Connection,
+    template_page: &TemplatePage,
+) -> Result<()> {
     conn.execute(
         "
         INSERT INTO entries (path, hash) VALUES (?1, ?2)
@@ -445,14 +476,21 @@ pub fn insert_or_update_template_page(conn: &Connection, template_page: &Paginat
 
     conn.execute(
         "
-        INSERT INTO template_pages (out_path, permalink, content, from_var, every, name_template, additional_dependencies, entry)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        INSERT INTO template_pages (
+            out_path, permalink, content, title, date, updated, slug, draft, dependencies, pagination_from, pagination_every, pagination_name_template, entry
+        )
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
         ON CONFLICT (out_path) DO UPDATE SET permalink = ?2,
             content = ?3,
-            from_var = ?4,
-            every = ?5,
-            name_template = ?6,
-            additional_dependencies = ?7
+            title = ?4,
+            date = ?5,
+            updated = ?6,
+            slug = ?7,
+            draft = ?8,
+            dependencies = ?9,
+            pagination_from = ?10,
+            pagination_every = ?11,
+            pagination_name_template = ?12
         ",
         (
             &template_page
@@ -461,10 +499,15 @@ pub fn insert_or_update_template_page(conn: &Connection, template_page: &Paginat
                 .context("Path should be valid unicode")?,
             &template_page.permalink.as_str(),
             &template_page.content,
-            &template_page.frontmatter.from,
-            &template_page.frontmatter.every,
-            &template_page.frontmatter.name_template,
-            &serde_json::to_string(&template_page.frontmatter.additional_dependencies)?,
+            &template_page.frontmatter.title,
+            &template_page.frontmatter.date,
+            &template_page.frontmatter.updated,
+            &template_page.frontmatter.slug,
+            &template_page.frontmatter.draft,
+            &serde_json::to_string(&template_page.frontmatter.dependencies)?,
+            &template_page.frontmatter.pagination.as_ref().map_or(None, |p| Some(&p.from)),
+            &template_page.frontmatter.pagination.as_ref().map_or(None, |p| Some(&p.every)),
+            &template_page.frontmatter.pagination.as_ref().map_or(None, |p| p.name_template.as_ref()),
             &template_page
                 .path
                 .to_str()
@@ -488,8 +531,3 @@ pub fn insert_tag(conn: &Connection, tag: &str) -> Result<()> {
 
     Ok(())
 }
-
-// /// Insert tag map for page at given path.
-// pub fn insert_tagmaps(conn: &Connection, path: &Path, tags: &[String]) -> Result<()> {
-
-// }

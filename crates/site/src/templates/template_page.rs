@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use chrono::{DateTime, Utc};
 use color_eyre::{
     Result,
     eyre::{ContextCompat, OptionExt},
@@ -21,24 +22,41 @@ use crate::{
     utils::{build_permalink, fs::ensure_directory},
 };
 
+/// A template page.
+///
+/// This is a minijinja template that can have frontmatter similar to a page.
 #[derive(Debug, PartialEq, Eq)]
-pub struct Paginated {
+pub struct TemplatePage {
     pub path: PathBuf,
     pub source_hash: String,
     pub out_path: PathBuf,
     pub permalink: Url,
     pub content: String,
-    pub frontmatter: MetaFrontmatter,
+    pub frontmatter: TPFrontmatter,
 }
 
-/// The frontmatter parsed from every meta template.
-#[derive(Debug, Deserialize, PartialEq, Eq)]
-pub struct MetaFrontmatter {
+/// The frontmatter parsed from every template page.
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TPFrontmatter {
+    pub title: String,
+    #[serde(default = "Utc::now")]
+    pub date: DateTime<Utc>,
+    #[serde(default = "Utc::now")]
+    pub updated: DateTime<Utc>,
+    pub slug: Option<String>,
+    #[serde(default)]
+    pub draft: bool,
+    #[serde(default)]
+    pub dependencies: Vec<String>,
+    pub pagination: Option<Pagination>,
+}
+
+/// Metadata passed to any pagination.
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Pagination {
     pub from: String,
     pub every: usize,
     pub name_template: Option<String>,
-    #[serde(default)]
-    pub additional_dependencies: Vec<String>,
 }
 
 /// The pagination context passed to every meta template.
@@ -49,8 +67,8 @@ pub struct PaginationContext {
     previous: Option<String>,
 }
 
-impl Paginated {
-    /// Create a new `Paginated`.
+impl TemplatePage {
+    /// Create a new `TemplatePage`.
     pub fn new<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
         content: &str,
         source_hash: String,
@@ -74,17 +92,56 @@ impl Paginated {
         })
     }
 
-    /// Render this pagination.
+    /// Render this template page.
     ///
-    /// TODO: currently, only collections of strings can be paginated over. In the future,
-    /// TODO: maybe something like `minijinja`s `DynObject` could be used to ease this restriction.
+    /// TODO: Currently, in regard to paginations, only collections of strings can be paginated
+    /// TODO: over. In the future, maybe something like `minijinja`s `DynObject` could be used to ease this restriction.
     pub fn render(&self, index: &[Arc<Page>], env: &Environment) -> Result<()> {
+        if let Some(pagination) = &self.frontmatter.pagination {
+            self.render_pagination(pagination, index, env)?;
+        } else {
+            let ending = if self.path.ends_with("index.html") {
+                PathBuf::from("index.html")
+            } else {
+                PathBuf::from(self.frontmatter.slug.as_ref().map_or_else(
+                    || self.frontmatter.title.replace(' ', "-"),
+                    |s| s.to_owned(),
+                ))
+                .join("index.html")
+            };
+            let out = self.out_path.join(ending);
+
+            let template = env.template_from_str(&self.content)?;
+
+            let ctx = Value::from_object(PageContext {
+                pages: index.to_vec(),
+            });
+            let rendered_html = template.render(context! {
+                frontmatter => self.frontmatter, ..ctx
+            })?;
+
+            let cfg = Cfg::new();
+            let minified = minify(rendered_html.as_bytes(), &cfg);
+
+            fs::write(out, minified)?;
+        }
+
+        Ok(())
+    }
+
+    fn render_pagination(
+        &self,
+        pagination: &Pagination,
+        index: &[Arc<Page>],
+        env: &Environment,
+    ) -> Result<()> {
         // Get global value that this template paginates on.
         let value = env
             .globals()
-            .find(|g| self.frontmatter.from == g.0)
-            .ok_or_eyre(format!("Global {} doesn't exist", self.frontmatter.from))?
+            .find(|g| pagination.from == g.0)
+            .ok_or_eyre(format!("Global {} doesn't exist", pagination.from))?
             .1;
+
         // Value::downcast_object_ref doesn't seem to work here, and I can't chunk an iterator.
         let items = value
             .try_iter()?
@@ -92,15 +149,14 @@ impl Paginated {
             .collect::<Vec<String>>();
 
         let template = env.template_from_str(&self.content)?;
-        let name_expr = self
-            .frontmatter
+        let name_expr = pagination
             .name_template
             .as_ref()
             .map(|s| env.compile_expression(s))
             .transpose()?;
 
         items
-            .par_chunks(self.frontmatter.every)
+            .par_chunks(pagination.every)
             .enumerate()
             .map(|(idx, chunk)| {
                 let pag = PaginationContext {
@@ -138,13 +194,13 @@ impl Paginated {
     }
 }
 
-impl Hash for Paginated {
+impl Hash for TemplatePage {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.path.hash(state);
     }
 }
 
-fn parse_frontmatter(content: &str) -> Result<(MetaFrontmatter, String)> {
+fn parse_frontmatter(content: &str) -> Result<(TPFrontmatter, String)> {
     let mut in_frontmatter = false;
     let mut frontmatter_content = String::new();
     let mut remaining = String::new();

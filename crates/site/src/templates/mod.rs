@@ -1,4 +1,4 @@
-pub mod pagination;
+pub mod template_page;
 
 mod functions;
 
