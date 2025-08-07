@@ -8,7 +8,7 @@ edition.workspace = true
 [dependencies]
 color-eyre.workspace = true
 
-yar_markdown = { path = "../markdown" }
+yar_markdown = { path = "../markdown", version = "0.1.0"}
 
 ignore = "0.4.23"
 petgraph = "0.8.1"
