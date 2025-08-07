@@ -2,6 +2,7 @@
 name = "yar_markdown"
 version = "0.1.0"
 license = "MIT"
+description = "Markdown handling for yar."
 edition.workspace = true
 
 [dependencies]
