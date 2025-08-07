@@ -10,7 +10,7 @@ use minijinja::{Environment, Value, context, path_loader, value::Object};
 use crate::{config::Config, page::Page, templates::functions::pages_in_section};
 
 const DEFAULT_404: &str = r#"
-<!DOCTYPE html?
+<!DOCTYPE html>
 <h1> Page Not Found</h1>
 <a href="{{ site.url | safe }}">Home</a>
 "#;
