@@ -1,6 +1,7 @@
 [package]
 name = "site"
 version = "0.1.0"
+license = "MIT"
 edition.workspace = true
 
 [dependencies]
