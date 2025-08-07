@@ -1,5 +1,5 @@
 [package]
-name = "site"
+name = "yar_site"
 version = "0.1.0"
 license = "MIT"
 edition.workspace = true
@@ -7,7 +7,7 @@ edition.workspace = true
 [dependencies]
 color-eyre.workspace = true
 
-markdown = { path = "../markdown" }
+yar_markdown = { path = "../markdown" }
 
 ignore = "0.4.23"
 petgraph = "0.8.1"

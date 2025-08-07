@@ -1,5 +1,5 @@
 [package]
-name = "markdown"
+name = "yar_markdown"
 version = "0.1.0"
 license = "MIT"
 edition.workspace = true
