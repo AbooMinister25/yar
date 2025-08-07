@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "An incremental static site generator written in Rust"
 readme = "README.md"
 authors = ["Rayyan Cyclegar"]
+license = "MIT"
+repository = "https://github.com/AbooMinister25/yar"
 edition.workspace = true
 
 [dependencies]
