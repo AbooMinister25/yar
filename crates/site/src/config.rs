@@ -43,13 +43,11 @@ pub struct SiteConfig {
 
 /// Configuration for hooks.
 ///
-/// Hooks are commands that are run on files that match a glob patterns. They accompany
+/// Hooks are commands that are run accompanying
 /// some event, e.g after processing.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct HooksConfig {
     /// Hooks that are run once the static site generator has finished processing.
-    ///
-    /// Can be used for various kinds of postprocessing.
     pub post: Vec<PostHook>,
 }
 
@@ -57,8 +55,6 @@ pub struct HooksConfig {
 pub struct PostHook {
     /// The command to run.
     pub cmd: String,
-    /// A glob pattern specifying what files the command is run on.
-    pub pattern: String,
     /// An optional help message.
     pub help: Option<String>,
 }

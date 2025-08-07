@@ -6,15 +6,16 @@ pub mod sql;
 
 mod asset;
 mod entry;
+mod extensions;
 mod page;
 mod static_file;
 mod templates;
 mod utils;
 
-use std::{collections::HashSet, ffi::OsStr, fs, io, sync::Arc};
+use std::{collections::HashSet, ffi::OsStr, fs, io, process::Command, sync::Arc};
 
 use chrono::Utc;
-use color_eyre::Result;
+use color_eyre::{Result, eyre::OptionExt};
 use config::Config;
 use crossbeam::channel::{Receiver, Sender, bounded};
 use entry::discover_entries;
@@ -322,6 +323,25 @@ impl Site<'_> {
         fs::write(out_path, rendered)?;
 
         println!("Wrote site to disk");
+
+        Ok(())
+    }
+
+    /// Run post hooks (hooks that are to be run once the static site generator has finished running).
+    pub fn run_post_hooks(&self) -> Result<()> {
+        for hook in &self.config.hooks.post {
+            println!("Running hook with command {}", hook.cmd);
+            let mut split = hook.cmd.split_whitespace();
+            let cmd = split
+                .next()
+                .ok_or_eyre(format!("Post hook command {} not valid.", hook.cmd))?;
+            let args = split.collect::<Vec<&str>>();
+
+            let output = Command::new(cmd).args(args).output()?;
+            println!("Hook completed with status {}", output.status);
+            println!("STDERR: {}", String::from_utf8_lossy(&output.stderr));
+            println!("STDOUT: {}", String::from_utf8_lossy(&output.stdout));
+        }
 
         Ok(())
     }

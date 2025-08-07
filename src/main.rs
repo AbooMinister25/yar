@@ -66,6 +66,7 @@ fn main() -> Result<()> {
         site.load()?;
         site.render()?;
         site.commit_to_db()?;
+        site.run_post_hooks()?;
 
         let elapsed = now.elapsed();
         println!("Built site in {elapsed:.2?}");
