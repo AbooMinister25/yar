@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use color_eyre::eyre::ContextCompat;
-use markdown::{Document, MarkdownRenderer};
+use yar_markdown::{Document, MarkdownRenderer};
 use minify_html::{Cfg, minify};
 use minijinja::{Environment, Value, context};
 use serde::{Deserialize, Serialize};

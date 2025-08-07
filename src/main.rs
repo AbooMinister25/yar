@@ -9,7 +9,7 @@ use figment::{
     Figment,
     providers::{Format, Serialized, Toml},
 };
-use site::{Site, config::Config, sql::setup_sql};
+use yar_site::{Site, config::Config, sql::setup_sql};
 use tempfile::Builder;
 
 #[derive(Parser)]

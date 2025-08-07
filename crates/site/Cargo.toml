@@ -2,6 +2,7 @@
 name = "yar_site"
 version = "0.1.0"
 license = "MIT"
+description = "Library for creating and working with static sites for yar."
 edition.workspace = true
 
 [dependencies]

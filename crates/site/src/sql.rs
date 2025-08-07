@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use color_eyre::{Result, eyre::ContextCompat};
-use markdown::{Document, Frontmatter};
+use yar_markdown::{Document, Frontmatter};
 use rusqlite::Connection;
 use url::Url;
 

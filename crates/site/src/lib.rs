@@ -19,7 +19,7 @@ use color_eyre::{Result, eyre::OptionExt};
 use config::Config;
 use crossbeam::channel::{Receiver, Sender, bounded};
 use entry::discover_entries;
-use markdown::MarkdownRenderer;
+use yar_markdown::MarkdownRenderer;
 use minijinja::{Environment, Value, context};
 use rayon::prelude::*;
 use rusqlite::Connection;

@@ -20,7 +20,7 @@ pub fn pages_in_section(
 #[cfg(test)]
 mod tests {
     use color_eyre::Result;
-    use markdown::MarkdownRenderer;
+    use yar_markdown::MarkdownRenderer;
     use minijinja::Environment;
     use url::Url;
 

@@ -103,7 +103,7 @@ pub fn create_environment(config: &Config) -> Result<Environment<'static>> {
 #[cfg(test)]
 mod tests {
     use chrono::{TimeZone, Utc};
-    use markdown::MarkdownRenderer;
+    use yar_markdown::MarkdownRenderer;
     use url::Url;
 
     use crate::page::Page;
