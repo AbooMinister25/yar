@@ -2,8 +2,13 @@
 #![allow(clippy::missing_panics_doc)]
 
 mod new;
+mod server;
 
-use std::{fs, path::Path, time::Instant};
+use std::{
+    fs,
+    path::Path,
+    time::{Duration, Instant},
+};
 
 use clap::{Parser, Subcommand};
 use color_eyre::Result;
@@ -11,10 +16,12 @@ use figment::{
     Figment,
     providers::{Format, Serialized, Toml},
 };
+use notify_debouncer_mini::{DebounceEventResult, DebouncedEvent, new_debouncer, notify::Error};
 use tempfile::Builder;
+use tower_livereload::{LiveReloadLayer, Reloader};
 use yar_site::{Site, config::Config, sql::setup_sql};
 
-use crate::new::create_site_template;
+use crate::{new::create_site_template, server::run_server};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None, arg_required_else_help = true)]
@@ -36,24 +43,31 @@ enum Commands {
     },
     /// Create a new site.
     New { path: String },
+    /// Build the site and serve it on a development web server.
+    /// Hot reloading on file changes.
+    Serve {
+        #[arg(long)]
+        clean: bool,
+    },
 }
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     color_eyre::install()?;
+    ensure_removed("temp/")?;
 
     let arguments = Args::parse();
+    let mut config: Config = Figment::from(Serialized::defaults(Config::default()))
+        .merge(Toml::file("Config.toml"))
+        .extract()?;
 
     match arguments.command {
         Some(Commands::Build { clean, dev }) => {
+            config.site.development = dev;
             let tmp_dir = Builder::new()
                 .prefix("temp")
                 .rand_bytes(0)
                 .tempdir_in(".")?;
-
-            let mut config: Config = Figment::from(Serialized::defaults(Config::default()))
-                .merge(Toml::file("Config.toml"))
-                .join(("site.development", dev))
-                .extract()?;
 
             // Build site in a temporary directory and copy it over once everything is built
             let original_output_path = config.site.output_path;
@@ -84,6 +98,60 @@ fn main() -> Result<()> {
             create_site_template(path)?;
             println!("Created site.")
         }
+        Some(Commands::Serve { clean }) => {
+            config.site.development = true;
+            let tmp_dir = Builder::new()
+                .prefix("temp")
+                .rand_bytes(0)
+                .tempdir_in(".")?;
+
+            // Build site in a temporary directory
+            config.site.output_path = tmp_dir.path().join("public");
+
+            // Clean build
+            if clean {
+                println!("Clean build, removing existing databases and output file");
+                ensure_removed("site.db")?;
+            }
+
+            let root = config.site.root.clone();
+            let conn = setup_sql()?;
+            let mut site = Site::new(conn, config)?;
+
+            let now = Instant::now();
+            println!("Building site.");
+            site.load()?;
+            site.render()?;
+            site.commit_to_db()?;
+            site.run_post_hooks()?;
+
+            let elapsed = now.elapsed();
+            println!("Built site in {elapsed:.2?}");
+
+            let livereload = LiveReloadLayer::new();
+            let reloader = livereload.reloader();
+
+            let (tx, rx) = tokio::sync::mpsc::channel(32);
+
+            let mut debouncer = new_debouncer(
+                Duration::from_millis(50),
+                move |res: DebounceEventResult| {
+                    tx.blocking_send(res).expect("Problem with sending message");
+                },
+            )?;
+            debouncer
+                .watcher()
+                .watch(&root, notify::RecursiveMode::Recursive)?;
+
+            let server_task =
+                tokio::spawn(
+                    async move { run_server(tmp_dir.path().join("public"), livereload).await },
+                );
+            let livereload_task = tokio::spawn(run_livereload(reloader, site, rx));
+
+            livereload_task.await??;
+            server_task.await??;
+        }
         _ => unreachable!(),
     }
 
@@ -113,6 +181,31 @@ fn ensure_removed<T: AsRef<Path>>(path: T) -> Result<()> {
             fs::remove_dir_all(path)?;
         } else {
             fs::remove_file(path)?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn run_livereload<'a>(
+    reloader: Reloader,
+    mut site: Site<'a>,
+    mut rx: tokio::sync::mpsc::Receiver<Result<Vec<DebouncedEvent>, Error>>,
+) -> Result<()> {
+    while let Some(Ok(events)) = rx.recv().await {
+        for event in events {
+            println!("{:?}", event);
+            let now = Instant::now();
+            println!("Filesystem changes detected...rebuilding site");
+            site.load()?;
+            site.render()?;
+            site.commit_to_db()?;
+            site.run_post_hooks()?;
+
+            let elapsed = now.elapsed();
+            println!("Built site in {elapsed:.2?}");
+
+            reloader.reload();
         }
     }
 
