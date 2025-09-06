@@ -46,10 +46,12 @@ const DEFAULT_INDEX_TEMPLATE: &str = r#"
     <div>
         <h1> All Pages </h1>
         {% for page in pages %}
+        {% if page.path is not endingwith "index.md" %}
             <div>
                 <h1> {{ page.document.frontmatter.title }} </h1>
-                <a> {{ page.permalink }} </a>
+                <a href="{{ page.permalink}}"> {{ page.permalink }} </a>
             </div>
+        {% endif %}
         {% endfor %}
     </div>
 </html>
