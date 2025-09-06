@@ -18,6 +18,7 @@ use figment::{
 };
 use notify_debouncer_mini::{DebounceEventResult, DebouncedEvent, new_debouncer, notify::Error};
 use tempfile::Builder;
+use tokio::signal::ctrl_c;
 use tower_livereload::{LiveReloadLayer, Reloader};
 use yar_site::{Site, config::Config, sql::setup_sql};
 
@@ -104,6 +105,7 @@ async fn main() -> Result<()> {
                 .prefix("temp")
                 .rand_bytes(0)
                 .tempdir_in(".")?;
+            let serve_path = tmp_dir.path().join("public"); // The path the static file server will serve files from.
 
             // Build site in a temporary directory
             config.site.output_path = tmp_dir.path().join("public");
@@ -144,9 +146,7 @@ async fn main() -> Result<()> {
                 .watch(&root, notify::RecursiveMode::Recursive)?;
 
             let server_task =
-                tokio::spawn(
-                    async move { run_server(tmp_dir.path().join("public"), livereload).await },
-                );
+                tokio::spawn(async move { run_server(serve_path, livereload, tmp_dir).await });
             let livereload_task = tokio::spawn(run_livereload(reloader, site, rx));
 
             livereload_task.await??;
@@ -192,21 +192,27 @@ async fn run_livereload<'a>(
     mut site: Site<'a>,
     mut rx: tokio::sync::mpsc::Receiver<Result<Vec<DebouncedEvent>, Error>>,
 ) -> Result<()> {
-    while let Some(Ok(events)) = rx.recv().await {
-        for event in events {
-            println!("{:?}", event);
-            let now = Instant::now();
-            println!("Filesystem changes detected...rebuilding site");
-            site.load()?;
-            site.render()?;
-            site.commit_to_db()?;
-            site.run_post_hooks()?;
+    loop {
+        tokio::select! {
+            Some(Ok(events)) = rx.recv() => {
+                for _ in events {
+                    let now = Instant::now();
+                    println!("Filesystem changes detected...rebuilding site");
+                    site.load()?;
+                    site.render()?;
+                    site.commit_to_db()?;
+                    site.run_post_hooks()?;
 
-            let elapsed = now.elapsed();
-            println!("Built site in {elapsed:.2?}");
+                    let elapsed = now.elapsed();
+                    println!("Built site in {elapsed:.2?}");
 
-            reloader.reload();
-        }
+                    reloader.reload();
+                }
+            },
+            _ = ctrl_c() => {
+                break;
+            }
+        };
     }
 
     Ok(())
