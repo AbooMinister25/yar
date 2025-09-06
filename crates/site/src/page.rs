@@ -5,11 +5,11 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use color_eyre::eyre::ContextCompat;
-use yar_markdown::{Document, MarkdownRenderer};
 use minify_html::{Cfg, minify};
 use minijinja::{Environment, Value, context};
 use serde::{Deserialize, Serialize};
 use url::Url;
+use yar_markdown::{Document, MarkdownRenderer};
 
 use crate::templates::PageContext;
 use crate::utils::build_permalink;
@@ -71,7 +71,7 @@ impl Page {
             pages: index.to_vec(),
         });
         let rendered_html = template.render(context! {
-            document => self.document,  ..ctx
+            document => self.document,  permalink => self.permalink, ..ctx
         })?;
 
         let cfg = Cfg::new();

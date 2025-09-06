@@ -52,8 +52,6 @@ pub fn discover_entries<T: AsRef<Path>>(path: T, conn: &Connection) -> Result<Ve
 }
 
 fn read_entries<T: AsRef<Path>>(path: T) -> Result<Vec<(PathBuf, Vec<u8>)>> {
-    // let (tx, rx) = mpsc::channel();
-
     let (tx, rx) = bounded(100);
 
     let handle = std::thread::spawn(|| {
