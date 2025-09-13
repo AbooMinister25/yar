@@ -10,13 +10,14 @@ use minijinja::{Environment, Value, context};
 use serde::{Deserialize, Serialize};
 use url::Url;
 use yar_markdown::{Document, MarkdownRenderer};
+use std::hash::Hash;
 
 use crate::templates::PageContext;
 use crate::utils::build_permalink;
 use crate::utils::fs::ensure_directory;
 
 /// A single page in the site.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Page {
     pub path: PathBuf,
     pub source_hash: String,
@@ -80,6 +81,12 @@ impl Page {
         fs::write(&self.out_path, minified)?;
 
         Ok(())
+    }
+}
+
+impl Hash for Page {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.path.hash(state);
     }
 }
 

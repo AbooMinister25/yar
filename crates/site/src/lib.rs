@@ -19,21 +19,22 @@ use color_eyre::{Result, eyre::OptionExt};
 use config::Config;
 use crossbeam::channel::{Receiver, Sender, bounded};
 use entry::discover_entries;
-use yar_markdown::MarkdownRenderer;
 use minijinja::{Environment, Value, context};
 use rayon::prelude::*;
 use rusqlite::Connection;
 use smol_str::SmolStr;
+use yar_markdown::MarkdownRenderer;
 
 use crate::{
     asset::Asset,
     page::Page,
     sql::{
-        get_pages, get_tags, get_template_pages, insert_or_update_asset, insert_or_update_page,
-        insert_or_update_static_file, insert_or_update_template_page, insert_tag,
+        get_pages, get_pages_for_template, get_tags, get_template_pages, insert_or_update_asset,
+        insert_or_update_page, insert_or_update_static_file, insert_or_update_template_page,
+        insert_tag,
     },
     static_file::StaticFile,
-    templates::{create_environment, template_page::TemplatePage},
+    templates::{create_environment, discover_templates, template_page::TemplatePage},
     utils::fs::ensure_directory,
 };
 
@@ -42,7 +43,7 @@ pub struct Site<'a> {
     conn: Connection,
     config: Config,
     pages: Vec<Arc<Page>>,
-    pages_to_build: Vec<Arc<Page>>,
+    pages_to_build: HashSet<Arc<Page>>,
     assets: Vec<Asset>,
     static_files: Vec<StaticFile>,
     template_pages: HashSet<TemplatePage>,
@@ -64,7 +65,7 @@ impl Site<'_> {
             conn,
             config,
             pages: Vec::new(),
-            pages_to_build: Vec::new(),
+            pages_to_build: HashSet::new(),
             assets: Vec::new(),
             static_files: Vec::new(),
             template_pages: HashSet::new(),
@@ -97,7 +98,7 @@ impl Site<'_> {
 
         let page_handle = std::thread::spawn(|| {
             let mut pages = Vec::new();
-            let mut pages_to_build = Vec::new();
+            let mut pages_to_build = HashSet::new();
             let mut tags: HashSet<SmolStr> = HashSet::new();
 
             for page in page_rx.into_iter().map(Arc::new) {
@@ -105,7 +106,7 @@ impl Site<'_> {
                 tags.extend(page_tags);
 
                 pages.push(Arc::clone(&page));
-                pages_to_build.push(Arc::clone(&page));
+                pages_to_build.insert(Arc::clone(&page));
             }
 
             (pages, pages_to_build, tags)
@@ -205,6 +206,17 @@ impl Site<'_> {
         drop(static_file_tx);
         drop(template_page_tx);
 
+        let templates = discover_templates(&self.config.site.root.join("templates"), &self.conn)?;
+
+        let mut pages_for_template = HashSet::new();
+        for template in templates {
+            pages_for_template.extend(
+                get_pages_for_template(&self.conn, &template)?
+                    .into_iter()
+                    .map(Arc::new),
+            );
+        }
+
         // Join the consumer threads.
         let (pages, pages_to_build, tags) = page_handle
             .join()
@@ -212,6 +224,8 @@ impl Site<'_> {
         self.pages = pages;
         self.pages_to_build = pages_to_build;
         self.tags = tags;
+
+        self.pages_to_build.extend(pages_for_template);
 
         let assets = asset_handle
             .join()

@@ -2,9 +2,9 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use color_eyre::{Result, eyre::ContextCompat};
-use yar_markdown::{Document, Frontmatter};
 use rusqlite::Connection;
 use url::Url;
+use yar_markdown::{Document, Frontmatter};
 
 use crate::{
     asset::Asset,
@@ -94,6 +94,17 @@ pub fn setup_sql() -> Result<Connection> {
             pagination_name_template TEXT,
             entry VARCHAR NOT NULL,
             FOREIGN KEY(entry) REFERENCES entries(path)
+        )
+    ",
+        (),
+    )?;
+
+    conn.execute(
+        "
+        CREATE TABLE IF NOT EXISTS templates (
+            path VARCHAR NOT NULL PRIMARY KEY,
+            name TEXT NOT NULL,
+            hash TEXT NOT NULL
         )
     ",
         (),
@@ -530,4 +541,107 @@ pub fn insert_tag(conn: &Connection, tag: &str) -> Result<()> {
     stmt.execute((tag,))?;
 
     Ok(())
+}
+
+/// Get template hashes.
+/// Get hashes for a given path.
+pub fn get_template_hashes<P: AsRef<Path>>(
+    conn: &Connection,
+    path: P,
+) -> Result<Vec<(String, String)>> {
+    let mut stmt = conn.prepare("SELECT name, hash FROM templates WHERE path = :path")?;
+    let path_str = path
+        .as_ref()
+        .to_str()
+        .context("Error while converting path to string")?;
+
+    let hashes_iter = stmt.query_map(&[(":path", path_str)], |row| {
+        let name: String = row.get(0)?;
+        let hash: String = row.get(1)?;
+
+        Ok((name, hash))
+    })?;
+    let mut hashes: Vec<(String, String)> = Vec::new();
+
+    for hash in hashes_iter {
+        hashes.push(hash?);
+    }
+
+    Ok(hashes)
+}
+
+pub fn get_pages_for_template(conn: &Connection, template: &str) -> Result<Vec<Page>> {
+    let mut stmt = conn.prepare(
+        "
+    SELECT out_path,
+        permalink,
+        date,
+        updated,
+        content,
+        toc,
+        summary,
+        title,
+        tags,
+        template,
+        slug,
+        draft,
+        requires,
+        entry
+    FROM pages
+    WHERE template = ?
+        ",
+    )?;
+    let mut entry_stmt = conn.prepare("SELECT hash FROM entries WHERE path = ?")?;
+
+    let pages_iter = stmt.query_map([template], |row| {
+        let out_path: String = row.get(0)?;
+        let permalink: String = row.get(1)?;
+        let tags: String = row.get(8)?;
+        let parsed_tags = serde_json::from_str(&tags).expect("JSON should be valid.");
+        let toc: String = row.get(5)?;
+        let parsed_toc = serde_json::from_str(&toc).expect("JSON should be valid.");
+        let requires: String = row.get(12)?;
+        let parsed_requires = serde_json::from_str(&requires).expect("JSON should be valid.");
+
+        let frontmatter = Frontmatter {
+            title: row.get(7)?,
+            tags: parsed_tags,
+            template: row.get(9)?,
+            date: Some(row.get(2)?),
+            updated: Some(row.get(3)?),
+            slug: row.get(10)?,
+            draft: row.get(11)?,
+            requires: parsed_requires,
+        };
+
+        let document = Document {
+            date: row.get(2)?,
+            updated: row.get(3)?,
+            content: row.get(4)?,
+            toc: parsed_toc,
+            summary: row.get(6)?,
+            frontmatter,
+        };
+
+        let entry_path: String = row.get(13)?;
+        let hash = entry_stmt
+            .query_map([&entry_path], |row| row.get(0))?
+            .next()
+            .expect("No corresponding entry for page in database?")?;
+
+        Ok(Page {
+            path: PathBuf::from(entry_path),
+            source_hash: hash,
+            out_path: PathBuf::from(out_path),
+            permalink: Url::parse(&permalink).expect("URL should be valid."),
+            document,
+        })
+    })?;
+
+    let mut pages = Vec::new();
+    for page in pages_iter {
+        pages.push(page?);
+    }
+
+    Ok(pages)
 }
