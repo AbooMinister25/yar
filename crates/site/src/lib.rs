@@ -228,6 +228,13 @@ impl Site<'_> {
             );
         }
 
+        if !pages_for_template.is_empty() {
+            println!(
+                "Templates changed...rebuilding {} pages that depend on changed templates",
+                pages_for_template.len()
+            );
+        }
+
         // Join the consumer threads.
         let (pages, pages_to_build, tags) = page_handle
             .join()
@@ -401,7 +408,7 @@ impl Site<'_> {
 
         tx.commit()?;
 
-        println!("Committed site state to database.");
+        println!("Committed site state to database");
 
         Ok(())
     }
