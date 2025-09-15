@@ -13,6 +13,7 @@ use crate::{
     templates::template_page::{Pagination, TPFrontmatter, TemplatePage},
 };
 
+#[allow(clippy::too_many_lines)]
 /// Set up sqlite database.
 /// Create initial tables if they don't exist and acquire the connection.
 pub fn setup_sql() -> Result<Connection> {
@@ -515,9 +516,9 @@ pub fn insert_or_update_template_page(
             &template_page.frontmatter.slug,
             &template_page.frontmatter.draft,
             &serde_json::to_string(&template_page.frontmatter.dependencies)?,
-            &template_page.frontmatter.pagination.as_ref().map_or(None, |p| Some(&p.from)),
-            &template_page.frontmatter.pagination.as_ref().map_or(None, |p| Some(&p.every)),
-            &template_page.frontmatter.pagination.as_ref().map_or(None, |p| p.name_template.as_ref()),
+            &template_page.frontmatter.pagination.as_ref().map(|p| &p.from),
+            &template_page.frontmatter.pagination.as_ref().map(|p| &p.every),
+            &template_page.frontmatter.pagination.as_ref().and_then(|p| p.name_template.as_ref()),
             &template_page
                 .path
                 .to_str()

@@ -6,13 +6,13 @@ use std::{
 
 use color_eyre::{Result, eyre::bail};
 
-const DEFAULT_CONFIG: &str = r#"
+const DEFAULT_CONFIG: &str = "
 [site]
 # Site related config.
 
 [hooks]
 # Hook related config.
-"#;
+";
 
 const DEFAULT_PAGE_TEMPLATE: &str = r#"
 <!DOCTYPE html>
@@ -95,7 +95,7 @@ pub fn create_site_template<P: AsRef<Path>>(path: P) -> Result<()> {
 }
 
 fn write_to_file<P: AsRef<Path>>(path: P, contents: &str) -> Result<()> {
-    fs::create_dir_all(&path.as_ref().parent().unwrap())?;
+    fs::create_dir_all(path.as_ref().parent().unwrap())?;
     File::create(path)?.write_all(contents.as_bytes())?;
     Ok(())
 }

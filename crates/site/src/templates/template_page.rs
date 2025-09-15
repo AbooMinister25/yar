@@ -105,7 +105,7 @@ impl TemplatePage {
             } else {
                 PathBuf::from(self.frontmatter.slug.as_ref().map_or_else(
                     || self.frontmatter.title.replace(' ', "-"),
-                    |s| s.to_owned(),
+                    ToOwned::to_owned,
                 ))
                 .join("index.html")
             };

@@ -82,6 +82,8 @@ impl Site<'_> {
     /// Keep in mind that if this is run without the previous iteration
     /// of the site being committed to the database with `Site.commit_to_db`,
     /// everything built in that iteration will be rebuilt.
+    ///
+    /// TODO: refactor this into multiple functions so it's easier to follow.
     #[allow(clippy::too_many_lines)]
     pub fn load(&mut self) -> Result<()> {
         self.pages.clear();
@@ -208,20 +210,19 @@ impl Site<'_> {
         drop(static_file_tx);
         drop(template_page_tx);
 
-        self.templates = discover_templates(&self.config.site.root.join("templates"), &self.conn)?;
+        self.templates = discover_templates(self.config.site.root.join("templates"), &self.conn)?;
 
         let mut pages_for_template = HashSet::new();
         for template in &self.templates {
             pages_for_template.extend(
                 get_pages_for_template(
                     &self.conn,
-                    &template
+                    template
                         .0
                         .file_name()
                         .ok_or_eyre("Template doesn't have file name")?
                         .to_str()
-                        .ok_or_eyre("Template file name is not valid UTF-8.")?
-                        .to_string(),
+                        .ok_or_eyre("Template file name is not valid UTF-8.")?,
                 )?
                 .into_iter()
                 .map(Arc::new),

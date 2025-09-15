@@ -97,7 +97,7 @@ async fn main() -> Result<()> {
         Some(Commands::New { path }) => {
             println!("Creating new site at {path}");
             create_site_template(path)?;
-            println!("Created site.")
+            println!("Created site");
         }
         Some(Commands::Serve { clean }) => {
             config.site.development = true;
@@ -187,9 +187,9 @@ fn ensure_removed<T: AsRef<Path>>(path: T) -> Result<()> {
     Ok(())
 }
 
-async fn run_livereload<'a>(
+async fn run_livereload(
     reloader: Reloader,
-    mut site: Site<'a>,
+    mut site: Site<'_>,
     mut rx: tokio::sync::mpsc::Receiver<Result<Vec<DebouncedEvent>, Error>>,
 ) -> Result<()> {
     loop {

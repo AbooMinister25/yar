@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-use color_eyre::{Result, eyre::OptionExt};
+use color_eyre::Result;
 use crossbeam::channel::bounded;
 use ignore::{WalkBuilder, WalkState};
 use minijinja::{Environment, Value, context, path_loader, value::Object};
