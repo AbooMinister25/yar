@@ -2,7 +2,11 @@ pub mod template_page;
 
 mod functions;
 
-use std::{fs, io, path::Path, sync::Arc};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use color_eyre::{Result, eyre::OptionExt};
 use crossbeam::channel::bounded;
@@ -112,7 +116,10 @@ pub fn create_environment(config: &Config) -> Result<Environment<'static>> {
 
 /// Discovers templates from the `templates` directory. Returns a collection
 /// of templates that have been modified or newly created from the previous run.
-pub fn discover_templates<T: AsRef<Path>>(path: T, conn: &Connection) -> Result<Vec<String>> {
+pub fn discover_templates<T: AsRef<Path>>(
+    path: T,
+    conn: &Connection,
+) -> Result<Vec<(PathBuf, String)>> {
     let mut ret = Vec::new();
 
     let (tx, rx) = bounded(100);
@@ -156,14 +163,8 @@ pub fn discover_templates<T: AsRef<Path>>(path: T, conn: &Connection) -> Result<
     for ((path, _), hash) in templates.into_iter().zip(hashes) {
         let hashes = get_template_hashes(conn, &path)?;
 
-        if hashes.is_empty() || hashes[0].1 != hash {
-            ret.push(
-                path.file_name()
-                    .ok_or_eyre("Template doesn't have file name")?
-                    .to_str()
-                    .ok_or_eyre("Template file name is not valid UTF-8.")?
-                    .to_string(),
-            );
+        if hashes.is_empty() || hashes[0] != hash {
+            ret.push((path, hash));
         }
     }
 
@@ -260,30 +261,4 @@ Hello World
 
         Ok(())
     }
-}
-
-/// Get all the pages that rely on the given template.
-pub fn get_page_for_template(conn: &Connection, template: &str) -> Result<Vec<Page>> {
-    let mut stmt = conn.prepare(
-        "
-    SELECT out_path,
-        permalink,
-        date,
-        updated,
-        content,
-        toc,
-        summary,
-        title,
-        tags,
-        template,
-        slug,
-        draft,
-        requires,
-        entry
-    FROM pages
-    WHERE template = ?1
-    ",
-    )?;
-
-    todo!()
 }

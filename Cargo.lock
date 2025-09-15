@@ -1627,16 +1627,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minijinja-autoreload"
-version = "2.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f506e21a0304f72e4dcd6c0b5fb04d500eb09484cd1880954479cca34ec937f3"
-dependencies = [
- "minijinja",
- "notify",
-]
-
-[[package]]
 name = "minijinja-contrib"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3381,7 +3371,6 @@ dependencies = [
  "color-eyre",
  "figment",
  "insta",
- "minijinja-autoreload",
  "notify",
  "notify-debouncer-mini",
  "tempfile",

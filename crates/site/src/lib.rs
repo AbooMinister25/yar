@@ -12,7 +12,7 @@ mod static_file;
 mod templates;
 mod utils;
 
-use std::{collections::HashSet, ffi::OsStr, fs, io, process::Command, sync::Arc};
+use std::{collections::HashSet, ffi::OsStr, fs, io, path::PathBuf, process::Command, sync::Arc};
 
 use chrono::Utc;
 use color_eyre::{Result, eyre::OptionExt};
@@ -30,8 +30,8 @@ use crate::{
     page::Page,
     sql::{
         get_pages, get_pages_for_template, get_tags, get_template_pages, insert_or_update_asset,
-        insert_or_update_page, insert_or_update_static_file, insert_or_update_template_page,
-        insert_tag,
+        insert_or_update_page, insert_or_update_static_file, insert_or_update_template,
+        insert_or_update_template_page, insert_tag,
     },
     static_file::StaticFile,
     templates::{create_environment, discover_templates, template_page::TemplatePage},
@@ -47,6 +47,7 @@ pub struct Site<'a> {
     assets: Vec<Asset>,
     static_files: Vec<StaticFile>,
     template_pages: HashSet<TemplatePage>,
+    templates: Vec<(PathBuf, String)>,
     tags: HashSet<SmolStr>,
     environment: Environment<'a>,
     markdown_renderer: MarkdownRenderer,
@@ -69,6 +70,7 @@ impl Site<'_> {
             assets: Vec::new(),
             static_files: Vec::new(),
             template_pages: HashSet::new(),
+            templates: Vec::new(),
             tags: HashSet::new(),
             environment: env,
             markdown_renderer,
@@ -206,14 +208,23 @@ impl Site<'_> {
         drop(static_file_tx);
         drop(template_page_tx);
 
-        let templates = discover_templates(&self.config.site.root.join("templates"), &self.conn)?;
+        self.templates = discover_templates(&self.config.site.root.join("templates"), &self.conn)?;
 
         let mut pages_for_template = HashSet::new();
-        for template in templates {
+        for template in &self.templates {
             pages_for_template.extend(
-                get_pages_for_template(&self.conn, &template)?
-                    .into_iter()
-                    .map(Arc::new),
+                get_pages_for_template(
+                    &self.conn,
+                    &template
+                        .0
+                        .file_name()
+                        .ok_or_eyre("Template doesn't have file name")?
+                        .to_str()
+                        .ok_or_eyre("Template file name is not valid UTF-8.")?
+                        .to_string(),
+                )?
+                .into_iter()
+                .map(Arc::new),
             );
         }
 
@@ -378,6 +389,10 @@ impl Site<'_> {
 
         for template_page in &self.template_pages {
             insert_or_update_template_page(&tx, template_page)?;
+        }
+
+        for template in &self.templates {
+            insert_or_update_template(&tx, template)?;
         }
 
         for tag in &self.tags {

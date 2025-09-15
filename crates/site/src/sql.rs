@@ -103,7 +103,6 @@ pub fn setup_sql() -> Result<Connection> {
         "
         CREATE TABLE IF NOT EXISTS templates (
             path VARCHAR NOT NULL PRIMARY KEY,
-            name TEXT NOT NULL,
             hash TEXT NOT NULL
         )
     ",
@@ -545,23 +544,19 @@ pub fn insert_tag(conn: &Connection, tag: &str) -> Result<()> {
 
 /// Get template hashes.
 /// Get hashes for a given path.
-pub fn get_template_hashes<P: AsRef<Path>>(
-    conn: &Connection,
-    path: P,
-) -> Result<Vec<(String, String)>> {
-    let mut stmt = conn.prepare("SELECT name, hash FROM templates WHERE path = :path")?;
+pub fn get_template_hashes<P: AsRef<Path>>(conn: &Connection, path: P) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare("SELECT hash FROM templates WHERE path = :path")?;
     let path_str = path
         .as_ref()
         .to_str()
         .context("Error while converting path to string")?;
 
     let hashes_iter = stmt.query_map(&[(":path", path_str)], |row| {
-        let name: String = row.get(0)?;
-        let hash: String = row.get(1)?;
+        let hash: String = row.get(0)?;
 
-        Ok((name, hash))
+        Ok(hash)
     })?;
-    let mut hashes: Vec<(String, String)> = Vec::new();
+    let mut hashes = Vec::new();
 
     for hash in hashes_iter {
         hashes.push(hash?);
@@ -644,4 +639,23 @@ pub fn get_pages_for_template(conn: &Connection, template: &str) -> Result<Vec<P
     }
 
     Ok(pages)
+}
+
+/// Insert a template into the database. If it already exists, update the existing database entry.
+pub fn insert_or_update_template(conn: &Connection, template: &(PathBuf, String)) -> Result<()> {
+    conn.execute(
+        "
+        INSERT INTO templates (path, hash) VALUES (?1, ?2)
+        ON CONFLICT (path) DO UPDATE SET hash = (?2)
+        ",
+        (
+            &template
+                .0
+                .to_str()
+                .context("Path should be valid unicode")?,
+            &template.1,
+        ),
+    )?;
+
+    Ok(())
 }
