@@ -20,7 +20,11 @@ use notify_debouncer_mini::{DebounceEventResult, DebouncedEvent, new_debouncer, 
 use tempfile::Builder;
 use tokio::signal::ctrl_c;
 use tower_livereload::{LiveReloadLayer, Reloader};
-use yar_site::{Site, config::Config, sql::setup_sql};
+use yar_site::{
+    Site,
+    config::Config,
+    sql::{DatabaseSource, setup_sql},
+};
 
 use crate::{new::create_site_template, server::run_server};
 
@@ -81,7 +85,8 @@ async fn main() -> Result<()> {
                 ensure_removed(&original_output_path)?;
             }
 
-            let conn = setup_sql()?;
+            let source = DatabaseSource::File(&config.site.db_file);
+            let conn = setup_sql(source)?;
             let now = Instant::now();
 
             let mut site = Site::new(conn, config)?;
@@ -117,7 +122,7 @@ async fn main() -> Result<()> {
             }
 
             let root = config.site.root.clone();
-            let conn = setup_sql()?;
+            let conn = setup_sql(DatabaseSource::Memory)?;
             let mut site = Site::new(conn, config)?;
 
             let now = Instant::now();

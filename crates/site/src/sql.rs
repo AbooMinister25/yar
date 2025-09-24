@@ -13,11 +13,21 @@ use crate::{
     templates::template_page::{Pagination, TPFrontmatter, TemplatePage},
 };
 
+#[derive(Debug)]
+pub enum DatabaseSource<'a> {
+    Memory,
+    File(&'a Path),
+}
+
 #[allow(clippy::too_many_lines)]
+#[allow(clippy::needless_pass_by_value)]
 /// Set up sqlite database.
 /// Create initial tables if they don't exist and acquire the connection.
-pub fn setup_sql() -> Result<Connection> {
-    let conn = Connection::open("site.db")?;
+pub fn setup_sql(source: DatabaseSource) -> Result<Connection> {
+    let conn = match source {
+        DatabaseSource::File(p) => Connection::open(p),
+        DatabaseSource::Memory => Connection::open_in_memory(),
+    }?;
 
     conn.execute(
         "

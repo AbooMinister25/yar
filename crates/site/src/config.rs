@@ -39,6 +39,7 @@ pub struct SiteConfig {
     pub syntax_theme: String,
     /// A path for discovering syntax highlighting themes.
     pub syntax_theme_path: Option<PathBuf>,
+    pub db_file: PathBuf,
 }
 
 /// Configuration for hooks.
@@ -72,6 +73,7 @@ impl Default for SiteConfig {
             development: false,
             syntax_theme: String::from("base16-ocean.dark"),
             syntax_theme_path: None,
+            db_file: Path::new("site.db").to_owned(),
         }
     }
 }
