@@ -1,6 +1,6 @@
 [package]
 name = "yar"
-version = "0.4.0"
+version = "0.6.0"
 description = "An incremental static site generator written in Rust"
 readme = "README.md"
 authors = ["Rayyan Cyclegar"]
@@ -17,7 +17,6 @@ clap = { version = "4.5.38", features = ["derive"] }
 tempfile = "3.20.0"
 figment = { version = "0.10.19", features = ["toml"] }
 tokio = { version = "1.47.1", features = ["full"] }
-tower = "0.5.2"
 tower-livereload = "0.9.6"
 axum = "0.8.4"
 tower-http = { version = "0.6.6", features = ["fs", "trace"] }
@@ -52,3 +51,7 @@ insta.opt-level = 3
 codegen-units = 1
 lto = "fat"
 strip = true
+
+[profile.dev]
+split-debuginfo = "unpacked"
+

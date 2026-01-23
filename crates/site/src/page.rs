@@ -8,9 +8,9 @@ use color_eyre::eyre::ContextCompat;
 use minify_html::{Cfg, minify};
 use minijinja::{Environment, Value, context};
 use serde::{Deserialize, Serialize};
+use std::hash::Hash;
 use url::Url;
 use yar_markdown::{Document, MarkdownRenderer};
-use std::hash::Hash;
 
 use crate::templates::PageContext;
 use crate::utils::build_permalink;

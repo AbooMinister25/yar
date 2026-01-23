@@ -12,7 +12,7 @@ mod static_file;
 mod templates;
 mod utils;
 
-use std::{collections::HashSet, ffi::OsStr, fs, io, path::PathBuf, process::Command, sync::Arc};
+use std::{collections::HashSet, ffi::OsStr, fs, io, path::PathBuf, process::Command, sync::{Arc, atomic::{AtomicBool, Ordering}}};
 
 use chrono::Utc;
 use color_eyre::{Result, eyre::OptionExt};
@@ -146,6 +146,8 @@ impl Site<'_> {
             template_pages
         });
 
+        let templates_modified = AtomicBool::new(false);
+
         entries
             .into_par_iter()
             .map(|entry| {
@@ -178,15 +180,23 @@ impl Site<'_> {
                         asset_tx.send(asset)?;
                     }
                     Some("html") => {
-                        let template_page = TemplatePage::new(
-                            &String::from_utf8(entry.raw_content)?,
-                            entry.hash,
-                            entry.path,
-                            &self.config.site.output_path,
-                            &self.config.site.root,
-                            &self.config.site.url,
-                        )?;
-                        template_page_tx.send(template_page)?;
+                        if entry
+                            .path
+                            .parent()
+                            .is_some_and(|p| p.file_name().is_some_and(|s| s == "templates"))
+                        {
+                            templates_modified.store(true, Ordering::Relaxed);
+                        } else {
+                            let template_page = TemplatePage::new(
+                                &String::from_utf8(entry.raw_content)?,
+                                entry.hash,
+                                entry.path,
+                                &self.config.site.output_path,
+                                &self.config.site.root,
+                                &self.config.site.url,
+                            )?;
+                            template_page_tx.send(template_page)?;
+                        }
                     }
                     _ => {
                         // Copy over any remaining extensions as-is.
@@ -357,6 +367,11 @@ impl Site<'_> {
 
         println!("Wrote site to disk");
 
+        Ok(())
+    }
+
+    fn reload_templates(&mut self) -> Result<()> {
+        self.environment = create_environment(&self.config)?;
         Ok(())
     }
 
