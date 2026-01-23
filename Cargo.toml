@@ -11,7 +11,7 @@ edition.workspace = true
 [dependencies]
 color-eyre.workspace = true
 
-yar_site = { path = "crates/site", version = "0.1.0" }
+yar_site = { path = "crates/site", version = "0.2.0" }
 
 clap = { version = "4.5.38", features = ["derive"] }
 tempfile = "3.20.0"
