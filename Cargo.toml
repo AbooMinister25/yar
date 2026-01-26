@@ -1,6 +1,6 @@
 [package]
 name = "yar"
-version = "0.6.0"
+version = "0.7.0"
 description = "An incremental static site generator written in Rust"
 readme = "README.md"
 authors = ["Rayyan Cyclegar"]
@@ -11,7 +11,7 @@ edition.workspace = true
 [dependencies]
 color-eyre.workspace = true
 
-yar_site = { path = "crates/site", version = "0.2.0" }
+yar_site = { path = "crates/site", version = "0.3.0" }
 
 clap = { version = "4.5.38", features = ["derive"] }
 tempfile = "3.20.0"

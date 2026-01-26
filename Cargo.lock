@@ -3267,7 +3267,7 @@ dependencies = [
 
 [[package]]
 name = "yar"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "axum",
  "clap",
@@ -3285,7 +3285,7 @@ dependencies = [
 
 [[package]]
 name = "yar_markdown"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "color-eyre",
@@ -3301,7 +3301,7 @@ dependencies = [
 
 [[package]]
 name = "yar_site"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "color-eyre",

@@ -1,6 +1,6 @@
 [package]
 name = "yar_site"
-version = "0.2.0"
+version = "0.3.0"
 license = "MIT"
 description = "Library for creating and working with static sites for yar."
 edition.workspace = true
@@ -8,7 +8,7 @@ edition.workspace = true
 [dependencies]
 color-eyre.workspace = true
 
-yar_markdown = { path = "../markdown", version = "0.2.0"}
+yar_markdown = { path = "../markdown", version = "0.3.0"}
 
 ignore = "0.4.23"
 rusqlite = { version = "0.35.0", features = ["bundled", "chrono", "array"] }
