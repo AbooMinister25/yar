@@ -49,7 +49,7 @@ impl TOCHeading {
 
     fn to_html(&self) -> String {
         let id = self.id.as_ref().unwrap_or(&self.text);
-        let html = format!("<h2><a id=\"{id}\" href=\"{id}\">{}</a></h2>", self.text);
+        let html = format!("<h2><a id=\"#{id}\" href=\"{id}\">{}</a></h2>", self.text);
 
         html
     }
@@ -171,7 +171,8 @@ impl MarkdownRenderer {
                             syntax,
                             &self.theme,
                         )
-                        .ok()?;
+                        .ok()?
+                        .trim_end_matches(['\r', '\n']).to_string();
 
                         codeblock = None;
 
