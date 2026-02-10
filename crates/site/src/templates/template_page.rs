@@ -110,6 +110,7 @@ impl TemplatePage {
                 .join("index.html")
             };
             let out = self.out_path.join(ending);
+            ensure_directory(out.parent().context("Path should have a parent")?)?;
 
             let template = env.template_from_str(&self.content)?;
 
@@ -230,7 +231,11 @@ fn out_path<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
     root: Z,
 ) -> PathBuf {
     let out_dir = out_dir.as_ref();
-    let path = path.as_ref().with_extension("");
+    let path = path
+        .as_ref()
+        .parent()
+        .unwrap_or_else(|| path.as_ref())
+        .with_extension("");
 
     let mut components = path
         .components()
