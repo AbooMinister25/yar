@@ -12,7 +12,17 @@ mod static_file;
 mod templates;
 mod utils;
 
-use std::{collections::HashSet, ffi::OsStr, fs, io, path::PathBuf, process::Command, sync::{Arc, atomic::{AtomicBool, Ordering}}};
+use std::{
+    collections::HashSet,
+    ffi::OsStr,
+    fs, io,
+    path::PathBuf,
+    process::Command,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+};
 
 use chrono::Utc;
 use color_eyre::{Result, eyre::OptionExt};
@@ -304,6 +314,11 @@ impl Site<'_> {
         self.environment
             .add_global("tags", Value::from_serialize(&self.tags));
 
+        if templates_modified.load(Ordering::Relaxed) {
+            println!("Templates modified...reloading environment");
+            self.reload_templates()?;
+        }
+
         println!("Loaded entries");
 
         Ok(())
@@ -316,6 +331,7 @@ impl Site<'_> {
         let pages = &self.pages;
         let environment = &self.environment;
         let dev = self.config.site.development;
+
         self.pages_to_build
             .par_iter()
             .filter(|p| dev || !p.document.frontmatter.draft)
