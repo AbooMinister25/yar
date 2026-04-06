@@ -50,7 +50,7 @@ impl TOCHeading {
     fn to_html(&self) -> String {
         let name = self.text.replace(' ', "-");
         let id = self.id.as_ref().unwrap_or(&name);
-        let html = format!("<h2 id=\"#{id}\"><a href=\"{id}\">{}</a></h2>", self.text);
+        let html = format!("<h2 id=\"{id}\"><a href=\"#{id}\">{}</a></h2>", self.text);
 
         html
     }
