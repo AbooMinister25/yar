@@ -16,7 +16,6 @@ frontmatter:
   template: foo.html
   date: "2025-01-01T6:00:00"
   updated: "2025-03-12T8:00:00"
-  series:
-    part: 3
   slug: some-slug
   draft: true
+  requires: []

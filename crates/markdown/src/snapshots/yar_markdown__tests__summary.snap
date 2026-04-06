@@ -16,6 +16,6 @@ frontmatter:
   template: ~
   date: ~
   updated: ~
-  series: ~
   slug: ~
   draft: false
+  requires: []
