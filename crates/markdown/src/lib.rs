@@ -85,7 +85,7 @@ impl CodeBlock {
 enum Summary {
     Complete,
     Incomplete,
-    FinalElement,
+    Finalize,
 }
 
 /// Used to parse and format a markdown document.
@@ -139,6 +139,7 @@ impl MarkdownRenderer {
         let mut character_count = 0;
         let mut summary_status = Summary::Incomplete;
         let mut summary_events = Vec::new();
+        let mut summary_open_tags = 0;
 
         let mut in_frontmatter = false;
 
@@ -146,7 +147,14 @@ impl MarkdownRenderer {
             // If there are currently less than 150 characters of text that have been parsed, add the
             // node to the summary. Additionally, make sure that the summary doesn't include unclosed tags and the like.
             if character_count >= 150 && !matches!(summary_status, Summary::Complete) {
-                summary_status = Summary::FinalElement;
+                summary_status = Summary::Finalize;
+            }
+
+            if matches!(summary_status, Summary::Incomplete | Summary::Finalize) && matches!(event, Event::Start(_)) {
+                summary_open_tags += 1;
+            }
+            if matches!(summary_status, Summary::Incomplete | Summary::Finalize) && matches!(event, Event::End(_))  {
+                summary_open_tags -= 1;
             }
 
             let e = match event {
@@ -240,9 +248,9 @@ impl MarkdownRenderer {
 
             match summary_status {
                 Summary::Incomplete => summary_events.push(e.clone()),
-                Summary::FinalElement => {
+                Summary::Finalize => {
                     summary_events.push(e.clone());
-                    if matches!(e, Some(Event::End(_))) {
+                    if summary_open_tags == 0 {
                         summary_status = Summary::Complete;
                     }
                 }

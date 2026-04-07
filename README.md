@@ -1,12 +1,14 @@
 # yar
 
-An incremental static site generator written in rust.
+A dead-simple and incremental static site generator written in Rust.
 
 Powers my [blog](https://rayyanc.com).
 
 ## Status
 
 This works, but it lacks polish. It's a work in progress.
+
+No maintainence guarantees as of yet.
 
 ## Building
 

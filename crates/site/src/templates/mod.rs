@@ -19,39 +19,38 @@ use crate::{
     config::Config, page::Page, sql::get_template_hashes, templates::functions::pages_in_section,
 };
 
-const DEFAULT_404: &str = r#"
-<!DOCTYPE html>
+const DEFAULT_404: &str = r#"<!DOCTYPE html>
 <h1> Page Not Found</h1>
 <a href="{{ site.url | safe }}">Home</a>
 "#;
 
-const DEFAULT_ATOM_FEED: &str = r#"
-<?xml version="1.0" encoding="UTF-8">
+const DEFAULT_ATOM_FEED: &str = r#"<?xml version="1.0" encoding="utf-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-    <title> {{ site.title | default("Unknown") }} </title>
+    <title>{{ site.title | default("Unknown") }}</title>
+    <updated>{{ last_updated | datetimeformat(format="iso") }}</updated>
+    <id>{{ feed_url | safe }}</id>
     <link href="{{ feed_url | safe }}" rel="self" />
     <link href="{{ site.url | safe }}"/>
-    <updated> {{ last_updated | datetimeformat(format="iso") }} </updated>
-    <id> {{ feed_url | safe }} </id>
     {% for page in pages %}
     {% if page.path is not endingwith "index.md" %}
     <entry>
-        <title> {{ page.document.frontmatter.title }} </title>
-        <published> {{ page.document.date | datetimeformat(format="iso") }} </published>
-        <updated> {{ page.document.updated | datetimeformat(format="iso") }} </updated>
-        <id> {{ page.permalink | safe }} </id>
+        <title>{{ page.document.frontmatter.title }}</title>
+        <published>{{ page.document.date | datetimeformat(format="iso") }}</published>
+        <updated>{{ page.document.updated | datetimeformat(format="iso") }}</updated>
+        <id>{{ page.permalink | safe }}</id>
+        <link rel="alternate" href="{{page.permalink}}" />
         {% if site.authors %}
             {% for author in site.authors %}
             <author>
-                <name> {{ author }} </name>
+                <name>{{ author }}</name>
             </author>
             {% endfor %}
         {% else %}
             <author>
-                <name> Unknown </name>
+                <name>Unknown</name>
             </author>
         {% endif %}
-        <summary> {{ page.document.summary | safe }} </summary>
+        <summary type="html">{{ page.document.summary | safe }}</summary>
         <content type="html">
             {{ page.document.content | safe }}
         </content>
@@ -61,8 +60,7 @@ const DEFAULT_ATOM_FEED: &str = r#"
 </feed>
 "#;
 
-const DEFAULT_SITEMAP: &str = r#"
-<?xml version="1.0" encoding="UTF-8"?>
+const DEFAULT_SITEMAP: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     {%- for page in pages %}
     <url>
