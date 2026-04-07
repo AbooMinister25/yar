@@ -137,12 +137,12 @@ pub fn discover_templates<T: AsRef<Path>>(
         let tx = tx.clone();
 
         Box::new(move |path| {
-            if let Ok(p) = path {
-                if !p.path().is_dir() {
-                    let content = fs::read(p.path()).expect("Error reading from file.");
-                    tx.send((p.into_path(), content))
-                        .expect("Error while sending.");
-                }
+            if let Ok(p) = path
+                && !p.path().is_dir()
+            {
+                let content = fs::read(p.path()).expect("Error reading from file.");
+                tx.send((p.into_path(), content))
+                    .expect("Error while sending.");
             }
 
             WalkState::Continue

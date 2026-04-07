@@ -191,6 +191,7 @@ Testing Content
 
 {{! test(a=1, b=2) !}}
 hello world
+*hi*
 {{! end !}}
 
 more text
@@ -211,6 +212,7 @@ more text
 
 {{! note !}}
 this is a note!
+*hi*
 {{! end !}}
 
 more text

@@ -8,5 +8,5 @@ expression: items.1
     arguments:
       a: 1
       b: 2
-    body: "hello world\n"
+    body: "hello world\n*hi*\n"
 - Text: "\n\nmore text\n        "

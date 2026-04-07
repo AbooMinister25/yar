@@ -20,15 +20,16 @@ pub fn pages_in_section(
 #[cfg(test)]
 mod tests {
     use color_eyre::Result;
-    use yar_markdown::MarkdownRenderer;
     use minijinja::Environment;
     use url::Url;
+    use yar_markdown::MarkdownRenderer;
 
     use super::*;
 
     #[test]
     fn test_pages_in_section() -> Result<()> {
-        let pages = (0..10).collect::<Vec<_>>()
+        let pages = (0..10)
+            .collect::<Vec<_>>()
             .iter()
             .map(|n| {
                 format!(

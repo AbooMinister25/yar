@@ -68,13 +68,12 @@ fn read_entries<T: AsRef<Path>>(path: T) -> Result<Vec<(PathBuf, Vec<u8>)>> {
         let tx = tx.clone();
 
         Box::new(move |path| {
-            if let Ok(p) = path {
-                if !p.path().is_dir() {
+            if let Ok(p) = path
+                && !p.path().is_dir() {
                     let content = fs::read(p.path()).expect("Error reading from file.");
                     tx.send((p.into_path(), content))
                         .expect("Error while sending.");
                 }
-            }
 
             WalkState::Continue
         })

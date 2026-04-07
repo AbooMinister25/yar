@@ -2,4 +2,4 @@
 source: crates/markdown/src/shortcodes.rs
 expression: evaluated
 ---
-"\n# Hello World\n\n\n<div class=\"note\">\n&lt;p&gt;this is a note!&lt;&#x2f;p&gt;\n\n</div>\n        \n\nmore text\n        "
+"\n# Hello World\n\n\n<div class=\"note\">\n&lt;p&gt;this is a note!\n&lt;em&gt;hi&lt;&#x2f;em&gt;&lt;&#x2f;p&gt;\n\n</div>\n        \n\nmore text\n        "

@@ -126,9 +126,10 @@ impl MarkdownRenderer {
     /// Parse markdown and create a `Document` form a given string.
     pub fn parse_from_string(&self, content: &str, env: &Environment) -> Result<Document> {
         let frontmatter = parse_frontmatter(content)?;
+        let content = evaluate_all_shortcodes(content, env, self)?;
 
         let mut html_output = String::new();
-        let parser = Parser::new_ext(content, self.options);
+        let parser = Parser::new_ext(&content, self.options);
 
         let mut codeblock = None;
 
@@ -140,9 +141,6 @@ impl MarkdownRenderer {
         let mut summary_events = Vec::new();
 
         let mut in_frontmatter = false;
-
-        let mut in_shortcode = false;
-        let mut current_shortcode = String::new();
 
         let parser = parser.filter_map(|event| -> Option<Event<'_>> {
             // If there are currently less than 150 characters of text that have been parsed, add the
@@ -173,11 +171,13 @@ impl MarkdownRenderer {
                             &self.theme,
                         )
                         .ok()?
-                        .trim_end_matches(['\r', '\n']).to_string();
+                        .trim_end_matches(['\r', '\n'])
+                        .to_string();
 
                         codeblock = None;
 
                         html.push_str("</code></pre>\n");
+
                         Some(Event::Html(html.into()))
                     } else {
                         None
@@ -210,45 +210,18 @@ impl MarkdownRenderer {
                     Some(event)
                 }
                 Event::Text(ref t) => {
-                    if t.contains("{{!") && !t.contains("{{! end !}}") {
-                        in_shortcode = true;
-                    }
-
-                    let shortcode_event = if t.contains("{{! end !}}") {
-                        assert!(in_shortcode, "Stray shortcode closing tag.");
-
-                        current_shortcode.push_str(t);
-                        in_shortcode = false;
-                        let evaluated = evaluate_all_shortcodes(&current_shortcode, env, self)
-                            .expect("Error while parsing shortcodes.");
-                        current_shortcode.clear();
-
-                        Some(Event::Html(evaluated.into()))
-                    } else {
-                        None
-                    };
-
-                    let text = if let Some(Event::Html(ref html)) = shortcode_event {
-                        html
-                    } else {
-                        t
-                    };
-
-                    if in_shortcode {
-                        current_shortcode.push_str(text);
-                        None
-                    } else if let Some(cb) = &mut codeblock {
-                        cb.text.push_str(text);
+                    if let Some(cb) = &mut codeblock {
+                        cb.text.push_str(t);
                         None
                     } else if let Some(h) = &mut current_heading {
-                        h.text.push_str(text);
+                        h.text.push_str(t);
                         None
                     } else {
                         if !in_frontmatter {
-                            character_count += text.len();
+                            character_count += t.len();
                         }
 
-                        Some(shortcode_event.unwrap_or(event))
+                        Some(event)
                     }
                 }
                 Event::Code(ref s)
@@ -257,9 +230,10 @@ impl MarkdownRenderer {
                 | Event::InlineHtml(ref s) => {
                     if let Some(h) = &mut current_heading {
                         h.text.push_str(s);
-                        return None;
+                        None
+                    } else {
+                        Some(event)
                     }
-                    Some(event)
                 }
                 _ => Some(event),
             };
