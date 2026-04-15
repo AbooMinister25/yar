@@ -5,8 +5,8 @@ pub mod config;
 pub mod sql;
 
 mod asset;
+mod database;
 mod entry;
-mod extensions;
 mod page;
 mod static_file;
 mod templates;
