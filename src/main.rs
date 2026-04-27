@@ -23,7 +23,7 @@ use tower_livereload::{LiveReloadLayer, Reloader};
 use yar_site::{
     Site,
     config::Config,
-    sql::{DatabaseSource, setup_sql},
+    database::{DatabaseSource, setup_database},
 };
 
 use crate::{new::create_site_template, server::run_server};
@@ -86,13 +86,13 @@ async fn main() -> Result<()> {
             }
 
             let source = DatabaseSource::File(&config.site.db_file);
-            let conn = setup_sql(source)?;
+            let conn = setup_database(source)?;
             let now = Instant::now();
 
             let mut site = Site::new(conn, config)?;
             site.load()?;
             site.render()?;
-            site.commit_to_db()?;
+            site.save_to_cache()?;
             site.run_post_hooks()?;
 
             let elapsed = now.elapsed();
@@ -122,14 +122,14 @@ async fn main() -> Result<()> {
             }
 
             let root = config.site.root.clone();
-            let conn = setup_sql(DatabaseSource::Memory)?;
+            let conn = setup_database(DatabaseSource::Memory)?;
             let mut site = Site::new(conn, config)?;
 
             let now = Instant::now();
             println!("Building site.");
             site.load()?;
             site.render()?;
-            site.commit_to_db()?;
+            site.save_to_cache()?;
             site.run_post_hooks()?;
 
             let elapsed = now.elapsed();
@@ -205,7 +205,7 @@ async fn run_livereload(
                     println!("Filesystem changes detected...rebuilding site");
                     site.load()?;
                     site.render()?;
-                    site.commit_to_db()?;
+                    site.save_to_cache()?;
                     site.run_post_hooks()?;
 
                     let elapsed = now.elapsed();

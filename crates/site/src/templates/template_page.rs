@@ -1,10 +1,10 @@
 use std::{
     fs,
-    hash::Hash,
+    hash::Hash as StdHash,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
+use blake3::Hash;
 use chrono::{DateTime, Utc};
 use color_eyre::{
     Result,
@@ -25,10 +25,10 @@ use crate::{
 /// A template page.
 ///
 /// This is a minijinja template that can have frontmatter similar to a page.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Serialize)]
 pub struct TemplatePage {
     pub path: PathBuf,
-    pub source_hash: String,
+    pub source_hash: Hash,
     pub out_path: PathBuf,
     pub permalink: Url,
     pub content: String,
@@ -71,7 +71,7 @@ impl TemplatePage {
     /// Create a new `TemplatePage`.
     pub fn new<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
         content: &str,
-        source_hash: String,
+        source_hash: Hash,
         path: P,
         out_dir: T,
         root: Z,
@@ -96,7 +96,7 @@ impl TemplatePage {
     ///
     /// TODO: Currently, in regard to paginations, only collections of strings can be paginated
     /// TODO: over. In the future, maybe something like `minijinja`s `DynObject` could be used to ease this restriction.
-    pub fn render(&self, index: &[Arc<Page>], env: &Environment) -> Result<()> {
+    pub fn render(&self, index: &[Page], env: &Environment) -> Result<()> {
         if let Some(pagination) = &self.frontmatter.pagination {
             self.render_pagination(pagination, index, env)?;
         } else {
@@ -133,7 +133,7 @@ impl TemplatePage {
     fn render_pagination(
         &self,
         pagination: &Pagination,
-        index: &[Arc<Page>],
+        index: &[Page],
         env: &Environment,
     ) -> Result<()> {
         // Get global value that this template paginates on.
@@ -177,7 +177,7 @@ impl TemplatePage {
                     .as_ref()
                     .map(|e| e.eval(context! { pagination => pag }))
                     .transpose()?
-                    .map_or(idx.to_string(), |v| v.to_string());
+                    .map_or_else(|| idx.to_string(), |v| v.to_string());
 
                 let out = self.out_path.join(name).join("index.html");
                 ensure_directory(out.parent().context("Path should have a parent")?)?;
@@ -195,7 +195,7 @@ impl TemplatePage {
     }
 }
 
-impl Hash for TemplatePage {
+impl StdHash for TemplatePage {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.path.hash(state);
     }

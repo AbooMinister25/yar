@@ -51,7 +51,7 @@ Hello World
                 Page::new(
                     format!("site/_content/series/testing/post-{n}.md"),
                     &s,
-                    "hashplaceholder".to_string(),
+                    blake3::hash(b"hashplaceholder"),
                     "public/",
                     "site/",
                     &Url::parse("https://example.com")?,
