@@ -31,18 +31,36 @@ use crate::{
     utils::fs::ensure_directory,
 };
 
+struct Library {
+    pub pages: Vec<Page>,
+    pub assets: Vec<Asset>,
+    pub static_files: Vec<StaticFile>,
+    pub template_pages: Vec<TemplatePage>,
+    pub templates: Vec<Template>,
+    pub invalidated_pages: HashSet<PathBuf>,
+}
+
+impl Library {
+    // Create an empty library.
+    pub fn new() -> Self {
+        Self {
+            pages: vec![],
+            assets: vec![],
+            static_files: vec![],
+            template_pages: vec![],
+            templates: vec![],
+            invalidated_pages: HashSet::new(),
+        }
+    }
+}
+
 /// A site to be built.
 pub struct Site<'a> {
     db: Database,
     config: Config,
-    pages: Vec<Page>,
-    invalidated_pages: HashSet<PathBuf>,
-    assets: Vec<Asset>,
-    static_files: Vec<StaticFile>,
-    template_pages: Vec<TemplatePage>,
-    templates: Vec<Template>,
     environment: Environment<'a>,
     markdown_renderer: MarkdownRenderer,
+    library: Library,
 }
 
 /// A helper enum that holds the different outputs `yar` works with.
@@ -66,17 +84,13 @@ impl Site<'_> {
         Ok(Self {
             db,
             config,
-            pages: Vec::new(),
-            invalidated_pages: HashSet::new(),
-            assets: Vec::new(),
-            static_files: Vec::new(),
-            template_pages: Vec::new(),
-            templates: Vec::new(),
             environment: env,
             markdown_renderer,
+            library: Library::new(),
         })
     }
 
+    /// Load all entries and process them.
     pub fn load(&mut self) -> Result<()> {
         let entries = discover_entries(&self.db, &self.config.site.root)?;
         println!("Discovered {} entries to build", entries.len());
@@ -105,10 +119,10 @@ impl Site<'_> {
         for item in processed {
             match item {
                 Processed::Page(p) => processed_pages.push(p),
-                Processed::Asset(a) => self.assets.push(a),
-                Processed::StaticFile(s) => self.static_files.push(s),
-                Processed::TemplatePage(tp) => self.template_pages.push(tp),
-                Processed::Template(t) => self.templates.push(t),
+                Processed::Asset(a) => self.library.assets.push(a),
+                Processed::StaticFile(s) => self.library.static_files.push(s),
+                Processed::TemplatePage(tp) => self.library.template_pages.push(tp),
+                Processed::Template(t) => self.library.templates.push(t),
             }
         }
 
@@ -120,8 +134,8 @@ impl Site<'_> {
             .collect::<HashSet<PathBuf>>();
         let cached_pages = get_pages(&self.db, &invalidated_pages)?;
 
-        self.invalidated_pages = invalidated_pages;
-        self.pages = processed_pages
+        self.library.invalidated_pages = invalidated_pages;
+        self.library.pages = processed_pages
             .into_iter()
             .chain(cached_pages)
             .collect::<Vec<Page>>();
@@ -130,39 +144,47 @@ impl Site<'_> {
         Ok(())
     }
 
+    /// Render the site to disk.
     pub fn render(&self) -> Result<()> {
         ensure_directory(&self.config.site.output_path)?;
+        println!("Rendering site to disk");
 
         self.render_pages()?;
-        self.assets
+        self.library
+            .assets
             .par_iter()
             .map(Asset::render)
             .collect::<Result<Vec<_>>>()?;
 
-        self.static_files
+        self.library
+            .static_files
             .par_iter()
             .map(StaticFile::render)
             .collect::<Result<Vec<_>>>()?;
 
+        println!("Rendered site");
         Ok(())
     }
 
+    /// Save the site to cache.
     pub fn save_to_cache(&mut self) -> Result<()> {
+        println!("Caching site");
         let invalididated_pages = self
+            .library
             .pages
             .iter()
-            .filter(|p| self.invalidated_pages.contains(&p.path))
+            .filter(|p| self.library.invalidated_pages.contains(&p.path))
             .collect::<Vec<&Page>>();
 
         for page in invalididated_pages {
             insert_page(&self.db, page)?;
         }
 
-        for asset in &self.assets {
+        for asset in &self.library.assets {
             insert_hash(&self.db, &asset.path, asset.source_hash.as_bytes())?;
         }
 
-        for static_file in &self.static_files {
+        for static_file in &self.library.static_files {
             insert_hash(
                 &self.db,
                 &static_file.path,
@@ -170,7 +192,7 @@ impl Site<'_> {
             )?;
         }
 
-        for template_page in &self.template_pages {
+        for template_page in &self.library.template_pages {
             insert_hash(
                 &self.db,
                 &template_page.path,
@@ -178,7 +200,7 @@ impl Site<'_> {
             )?;
         }
 
-        for template in &self.templates {
+        for template in &self.library.templates {
             insert_hash(&self.db, &template.path, template.source_hash.as_bytes())?;
         }
 
@@ -187,21 +209,23 @@ impl Site<'_> {
 
     fn render_pages(&self) -> Result<()> {
         let pages_to_build = self
+            .library
             .pages
             .iter()
-            .filter(|p| self.invalidated_pages.contains(&p.path))
+            .filter(|p| self.library.invalidated_pages.contains(&p.path))
             .collect::<Vec<&Page>>();
 
         pages_to_build
             .par_iter()
             .filter(|p| self.config.site.development || !p.document.frontmatter.draft)
-            .map(|p| p.render(&self.pages, &self.environment))
+            .map(|p| p.render(&self.library.pages, &self.environment))
             .collect::<Result<Vec<_>>>()?;
 
-        self.template_pages
+        self.library
+            .template_pages
             .par_iter()
             .filter(|t| self.config.site.development || !t.frontmatter.draft)
-            .map(|t| t.render(&self.pages, &self.environment))
+            .map(|t| t.render(&self.library.pages, &self.environment))
             .collect::<Result<Vec<_>>>()?;
 
         // Generate 404 page.
@@ -219,7 +243,7 @@ impl Site<'_> {
         let rendered = template.render(context! {
             last_updated => last_updated,
             feed_url => feed_url,
-            pages => &self.pages,
+            pages => &self.library.pages,
         })?;
         fs::write(out_path, rendered)?;
 
@@ -227,17 +251,12 @@ impl Site<'_> {
         let out_path = self.config.site.output_path.join("sitemap.xml");
         let template = self.environment.get_template("sitemap.xml")?;
         let rendered = template.render(context! {
-            pages => &self.pages,
+            pages => &self.library.pages,
         })?;
         fs::write(out_path, rendered)?;
 
         Ok(())
     }
-
-    // fn reload_templates(&mut self) -> Result<()> {
-    //     self.environment = create_environment(&self.config)?;
-    //     Ok(())
-    // }
 
     /// Run post hooks (hooks that are to be run once the static site generator has finished running).
     pub fn run_post_hooks(&self) -> Result<()> {
