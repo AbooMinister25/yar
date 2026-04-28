@@ -24,6 +24,14 @@ pub fn setup_database(source: DatabaseSource) -> Result<Database> {
         DatabaseSource::Memory => Database::builder().create_with_backend(InMemoryBackend::new())?,
     };
 
+    // redb requires an initial write before a read if the table is empty.
+    let write_txn = db.begin_write()?;
+    {
+        write_txn.open_table(HASHES)?;
+        write_txn.open_table(PAGES)?;
+    }
+    write_txn.commit()?;
+
     Ok(db)
 }
 
@@ -43,7 +51,10 @@ pub fn get_hashes(db: &Database) -> Result<HashMap<PathBuf, [u8; 32]>> {
 }
 
 /// Get all the pages stored in the database, filtering out any ones with invalidated paths that were passed in.
-pub fn get_pages<S: ::std::hash::BuildHasher>(db: &Database, invalidated: &HashSet<PathBuf, S>) -> Result<Vec<Page>> {
+pub fn get_pages<S: ::std::hash::BuildHasher>(
+    db: &Database,
+    invalidated: &HashSet<PathBuf, S>,
+) -> Result<Vec<Page>> {
     let read_txn = db.begin_read()?;
     let table = read_txn.open_table(PAGES)?;
 
@@ -73,25 +84,29 @@ pub fn insert_hash<P: AsRef<Path>, B: AsRef<[u8]>>(db: &Database, path: P, hash:
 
         table.insert(path_str, hash.as_ref())?;
     }
+    write_txn.commit()?;
 
     Ok(())
 }
 
 /// Insert a page into the database. If the page already exists, the existing entry is updated.
 pub fn insert_page(db: &Database, page: &Page) -> Result<()> {
+    let path_str = page
+        .path
+        .to_str()
+        .context("Could not convert path to string.")?;
+
     let write_txn = db.begin_write()?;
     {
         let mut table = write_txn.open_table(PAGES)?;
 
-        let path_str = page
-            .path
-            .to_str()
-            .context("Could not convert path to string.")?;
         let serialized_page = postcard::to_stdvec(page)?;
 
         table.insert(path_str, serialized_page.as_slice())?;
-        insert_hash(db, path_str, page.source_hash.as_bytes())?;
     }
+    write_txn.commit()?;
+
+    insert_hash(db, path_str, page.source_hash.as_bytes())?;
 
     Ok(())
 }

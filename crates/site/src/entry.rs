@@ -79,16 +79,20 @@ pub fn discover_entries<P: AsRef<Path>>(db: &Database, path: P) -> Result<Vec<En
             let content = fs::read(&path).expect("Error reading from file.");
 
             let hash = blake3::hash(&content);
+
             let original_hash = hashes.get(&path);
 
             // Create a new entry to be built if the hash has changed since or is newly created.
-            if original_hash.is_none_or(|h| h == hash.as_bytes()) {
-                tx.send(Entry::new(path, content, hash)).expect("Error while sending");
+            if original_hash.is_none_or(|h| h != hash.as_bytes()) {
+                tx.send(Entry::new(path, content, hash))
+                    .expect("Error while sending");
             }
 
             WalkState::Continue
         })
     });
+
+    drop(tx);
 
     let ret: Vec<Entry> = rx.into_iter().collect();
     Ok(ret)

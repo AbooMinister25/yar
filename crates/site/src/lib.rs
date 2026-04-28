@@ -145,9 +145,14 @@ impl Site<'_> {
     }
 
     /// Render the site to disk.
-    pub fn render(&self) -> Result<()> {
+    pub fn render(&mut self) -> Result<()> {
         ensure_directory(&self.config.site.output_path)?;
         println!("Rendering site to disk");
+
+        // If any templates have been modified, reload the environment.
+        if !self.library.template_pages.is_empty() {
+            self.reload_environment()?;
+        }
 
         self.render_pages()?;
         self.library
@@ -169,6 +174,7 @@ impl Site<'_> {
     /// Save the site to cache.
     pub fn save_to_cache(&mut self) -> Result<()> {
         println!("Caching site");
+
         let invalididated_pages = self
             .library
             .pages
@@ -204,6 +210,11 @@ impl Site<'_> {
             insert_hash(&self.db, &template.path, template.source_hash.as_bytes())?;
         }
 
+        Ok(())
+    }
+
+    fn reload_environment(&mut self) -> Result<()> {
+        self.environment = create_environment(&self.config)?;
         Ok(())
     }
 

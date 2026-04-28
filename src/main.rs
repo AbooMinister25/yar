@@ -81,7 +81,7 @@ async fn main() -> Result<()> {
             // Clean build
             if clean {
                 println!("Clean build, removing existing databases and output file");
-                ensure_removed("site.db")?;
+                ensure_removed(&config.site.db_file)?;
                 ensure_removed(&original_output_path)?;
             }
 
@@ -118,7 +118,7 @@ async fn main() -> Result<()> {
             // Clean build
             if clean {
                 println!("Clean build, removing existing databases and output file");
-                ensure_removed("site.db")?;
+                ensure_removed(&config.site.db_file)?;
             }
 
             let root = config.site.root.clone();
