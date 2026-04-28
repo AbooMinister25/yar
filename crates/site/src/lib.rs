@@ -2,9 +2,9 @@
 #![allow(clippy::missing_panics_doc)]
 
 pub mod config;
+pub mod database;
 
 mod asset;
-pub mod database;
 mod entry;
 mod page;
 mod static_file;

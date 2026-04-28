@@ -18,7 +18,6 @@ pub struct StaticFile {
     pub source_hash: Hash,
     pub out_path: PathBuf,
     pub permalink: Url,
-    pub content: Vec<u8>,
 }
 
 impl StaticFile {
@@ -31,14 +30,12 @@ impl StaticFile {
     ) -> Result<Self> {
         let out_path = out_path(&path, &out_dir, root);
         let permalink = build_permalink(&out_path, out_dir, url)?;
-        let content = fs::read(&path)?;
 
         Ok(Self {
             path: path.as_ref().to_owned(),
             source_hash,
             out_path,
             permalink,
-            content,
         })
     }
 
