@@ -182,33 +182,33 @@ impl Site<'_> {
             .filter(|p| self.library.invalidated_pages.contains(&p.path))
             .collect::<Vec<&Page>>();
 
+        let txn = self.db.begin_write()?;
+
         for page in invalididated_pages {
-            insert_page(&self.db, page)?;
+            insert_page(&txn, page)?;
         }
 
         for asset in &self.library.assets {
-            insert_hash(&self.db, &asset.path, asset.source_hash.as_bytes())?;
+            insert_hash(&txn, &asset.path, asset.source_hash.as_bytes())?;
         }
 
         for static_file in &self.library.static_files {
-            insert_hash(
-                &self.db,
-                &static_file.path,
-                static_file.source_hash.as_bytes(),
-            )?;
+            insert_hash(&txn, &static_file.path, static_file.source_hash.as_bytes())?;
         }
 
         for template_page in &self.library.template_pages {
             insert_hash(
-                &self.db,
+                &txn,
                 &template_page.path,
                 template_page.source_hash.as_bytes(),
             )?;
         }
 
         for template in &self.library.templates {
-            insert_hash(&self.db, &template.path, template.source_hash.as_bytes())?;
+            insert_hash(&txn, &template.path, template.source_hash.as_bytes())?;
         }
+
+        txn.commit()?;
 
         Ok(())
     }

@@ -4,7 +4,10 @@ use std::{
 };
 
 use color_eyre::{Result, eyre::ContextCompat};
-use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition, backends::InMemoryBackend};
+use redb::{
+    Database, ReadableDatabase, ReadableTable, TableDefinition, WriteTransaction,
+    backends::InMemoryBackend,
+};
 
 use crate::page::Page;
 
@@ -73,40 +76,35 @@ pub fn get_pages<S: ::std::hash::BuildHasher>(
 }
 
 /// Insert a hash into the database. If there is already a hash for the given path, the existing entry is updated.
-pub fn insert_hash<P: AsRef<Path>, B: AsRef<[u8]>>(db: &Database, path: P, hash: B) -> Result<()> {
-    let write_txn = db.begin_write()?;
-    {
-        let mut table = write_txn.open_table(HASHES)?;
-        let path_str = path
-            .as_ref()
-            .to_str()
-            .context("Could not convert path to string.")?;
+pub fn insert_hash<P: AsRef<Path>, B: AsRef<[u8]>>(
+    txn: &WriteTransaction,
+    path: P,
+    hash: B,
+) -> Result<()> {
+    // let write_txn = db.begin_write()?;
+    let mut table = txn.open_table(HASHES)?;
+    let path_str = path
+        .as_ref()
+        .to_str()
+        .context("Could not convert path to string.")?;
 
-        table.insert(path_str, hash.as_ref())?;
-    }
-    write_txn.commit()?;
+    table.insert(path_str, hash.as_ref())?;
 
     Ok(())
 }
 
 /// Insert a page into the database. If the page already exists, the existing entry is updated.
-pub fn insert_page(db: &Database, page: &Page) -> Result<()> {
+pub fn insert_page(txn: &WriteTransaction, page: &Page) -> Result<()> {
     let path_str = page
         .path
         .to_str()
         .context("Could not convert path to string.")?;
 
-    let write_txn = db.begin_write()?;
-    {
-        let mut table = write_txn.open_table(PAGES)?;
+    let mut table = txn.open_table(PAGES)?;
+    let serialized_page = postcard::to_stdvec(page)?;
+    table.insert(path_str, serialized_page.as_slice())?;
 
-        let serialized_page = postcard::to_stdvec(page)?;
-
-        table.insert(path_str, serialized_page.as_slice())?;
-    }
-    write_txn.commit()?;
-
-    insert_hash(db, path_str, page.source_hash.as_bytes())?;
+    insert_hash(txn, path_str, page.source_hash.as_bytes())?;
 
     Ok(())
 }
