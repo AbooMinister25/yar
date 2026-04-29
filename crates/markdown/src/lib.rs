@@ -3,8 +3,12 @@
 
 mod shortcodes;
 
-use std::path::Path;
+use std::{fs, path::Path};
 
+use arborium::{
+    Highlighter,
+    theme::{Theme, builtin},
+};
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use color_eyre::Result;
 use minijinja::Environment;
@@ -13,11 +17,6 @@ use pulldown_cmark::{
 };
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
-use syntect::{
-    highlighting::{Theme, ThemeSet},
-    html::highlighted_html_for_string,
-    parsing::SyntaxSet,
-};
 
 use crate::shortcodes::evaluate_all_shortcodes;
 
@@ -91,21 +90,28 @@ enum Summary {
 /// Used to parse and format a markdown document.
 ///
 /// Stores all the required context.
-#[derive(Debug)]
 pub struct MarkdownRenderer {
-    syntax_set: SyntaxSet,
-    theme: Theme,
     options: Options,
+    highlighter: Highlighter,
+    pub theme: Theme,
 }
 
 impl MarkdownRenderer {
     pub fn new<P: AsRef<Path>>(theme_path: Option<P>, theme: Option<&str>) -> Result<Self> {
-        let syntax_set = SyntaxSet::load_defaults_newlines();
-        let theme_set = theme_path.map_or_else(
-            || Ok(ThemeSet::load_defaults()),
-            |p| ThemeSet::load_from_folder(p),
-        )?;
-        let theme = theme_set.themes[theme.unwrap_or("base16-ocean.dark")].clone();
+        let theme = if let Some(path) = theme_path {
+            let path = path.as_ref();
+            let theme_def = fs::read_to_string(path)?;
+            Theme::from_toml(&theme_def)?
+        } else {
+            theme.map_or_else(builtin::solarized_dark, |t| {
+                builtin::all()
+                    .into_iter()
+                    .find(|s| t == s.name)
+                    .unwrap_or_else(builtin::solarized_dark)
+            })
+        };
+
+        let highlighter = Highlighter::new();
 
         let mut options = Options::empty();
         options.insert(Options::ENABLE_TABLES);
@@ -116,15 +122,17 @@ impl MarkdownRenderer {
         options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
 
         Ok(Self {
-            syntax_set,
-            theme,
             options,
+            highlighter,
+            theme,
         })
     }
 
     #[allow(clippy::too_many_lines)]
     /// Parse markdown and create a `Document` form a given string.
     pub fn parse_from_string(&self, content: &str, env: &Environment) -> Result<Document> {
+        let mut hl = self.highlighter.fork();
+
         let frontmatter = parse_frontmatter(content)?;
         let content = evaluate_all_shortcodes(content, env, self)?;
 
@@ -150,10 +158,14 @@ impl MarkdownRenderer {
                 summary_status = Summary::Finalize;
             }
 
-            if matches!(summary_status, Summary::Incomplete | Summary::Finalize) && matches!(event, Event::Start(_)) {
+            if matches!(summary_status, Summary::Incomplete | Summary::Finalize)
+                && matches!(event, Event::Start(_))
+            {
                 summary_open_tags += 1;
             }
-            if matches!(summary_status, Summary::Incomplete | Summary::Finalize) && matches!(event, Event::End(_))  {
+            if matches!(summary_status, Summary::Incomplete | Summary::Finalize)
+                && matches!(event, Event::End(_))
+            {
                 summary_open_tags -= 1;
             }
 
@@ -168,19 +180,12 @@ impl MarkdownRenderer {
                 }
                 Event::End(TagEnd::CodeBlock) => {
                     if let Some(cb) = &codeblock {
-                        let syntax = self
-                            .syntax_set
-                            .find_syntax_by_extension(&cb.lang)
-                            .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
-                        let mut html = highlighted_html_for_string(
-                            &cb.text,
-                            &self.syntax_set,
-                            syntax,
-                            &self.theme,
-                        )
-                        .ok()?
-                        .trim_end_matches(['\r', '\n'])
-                        .to_string();
+                        let mut html = if cb.lang.is_empty() {
+                            cb.text.clone()
+                        } else {
+                            hl.highlight(&cb.lang, &cb.text)
+                                .expect("Error while highlighting")
+                        };
 
                         codeblock = None;
 
@@ -293,6 +298,7 @@ impl MarkdownRenderer {
     }
 
     /// Render a one-off string to markdown. Doesn't create a `Document`.
+    #[allow(clippy::must_use_candidate)]
     pub fn render_one_off(&self, content: &str) -> String {
         let mut html_output = String::new();
         let parser = Parser::new_ext(content, self.options);

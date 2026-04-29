@@ -266,6 +266,13 @@ impl Site<'_> {
         })?;
         fs::write(out_path, rendered)?;
 
+        // Write syntax theme.
+        let out_path = self.config.site.output_path.join("styles/_syntax.css");
+        ensure_directory(out_path.parent().unwrap())?;
+        // TODO: Allow configurable selector prefix.
+        let css = self.markdown_renderer.theme.to_css("pre");
+        fs::write(out_path, css)?;
+
         Ok(())
     }
 

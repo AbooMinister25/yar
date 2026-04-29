@@ -1,7 +1,7 @@
 use std::ffi::OsStr;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::{fs, io};
 
 use blake3::Hash;
 use color_eyre::Result;
@@ -65,6 +65,8 @@ pub fn discover_entries<P: AsRef<Path>>(db: &Database, path: P) -> Result<Vec<En
 
     let hashes = Arc::new(get_hashes(db)?);
 
+    let handle = std::thread::spawn(move || rx.into_iter().collect());
+
     WalkBuilder::new(path).build_parallel().run(|| {
         let tx = tx.clone();
         let hashes = hashes.clone();
@@ -94,6 +96,8 @@ pub fn discover_entries<P: AsRef<Path>>(db: &Database, path: P) -> Result<Vec<En
 
     drop(tx);
 
-    let ret: Vec<Entry> = rx.into_iter().collect();
+    let ret: Vec<Entry> = handle
+        .join()
+        .map_err(|e| io::Error::other(format!("Collector thread panicked: {e:?}")))?;
     Ok(ret)
 }
