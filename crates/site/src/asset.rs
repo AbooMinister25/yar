@@ -4,17 +4,19 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use blake3::Hash;
 use color_eyre::{Result, eyre::ContextCompat};
+use serde::Serialize;
 use url::Url;
 
 use crate::utils::{build_permalink, fs::ensure_directory};
 
 /// Represents a resource that is passed through an asset pipeline.
 /// This can include things like images, stylesheets, and javascript.
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct Asset {
     pub path: PathBuf,
-    pub source_hash: String,
+    pub source_hash: Hash,
     pub out_path: PathBuf,
     pub permalink: Url,
     pub content: String,
@@ -23,7 +25,7 @@ pub struct Asset {
 impl Asset {
     pub fn new<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
         path: P,
-        source_hash: String,
+        source_hash: Hash,
         out_dir: T,
         root: Z,
         url: &Url,

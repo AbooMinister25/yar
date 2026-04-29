@@ -2,22 +2,14 @@ pub mod template_page;
 
 mod functions;
 
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
+use blake3::Hash;
 use color_eyre::Result;
-use crossbeam::channel::bounded;
-use ignore::{WalkBuilder, WalkState};
 use minijinja::{Environment, Value, context, path_loader, value::Object};
-use rayon::prelude::*;
-use rusqlite::Connection;
+use serde::Serialize;
 
-use crate::{
-    config::Config, page::Page, sql::get_template_hashes, templates::functions::pages_in_section,
-};
+use crate::{config::Config, page::Page, templates::functions::pages_in_section};
 
 const DEFAULT_404: &str = r#"<!DOCTYPE html>
 <h1> Page Not Found</h1>
@@ -71,10 +63,23 @@ const DEFAULT_SITEMAP: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 </urlset>
 "#;
 
+/// A template, used for caching.
+#[derive(Debug, Serialize)]
+pub struct Template {
+    pub path: PathBuf,
+    pub source_hash: Hash,
+}
+
+impl Template {
+    pub const fn new(path: PathBuf, source_hash: Hash) -> Self {
+        Self { path, source_hash }
+    }
+}
+
 /// The context that is passed to pages when they are rendered.
 #[derive(Debug)]
 pub struct PageContext {
-    pub pages: Vec<Arc<Page>>,
+    pub pages: Vec<Page>,
 }
 
 impl Object for PageContext {
@@ -112,63 +117,6 @@ pub fn create_environment(config: &Config) -> Result<Environment<'static>> {
     Ok(env)
 }
 
-/// Discovers templates from the `templates` directory. Returns a collection
-/// of templates that have been modified or newly created from the previous run.
-pub fn discover_templates<T: AsRef<Path>>(
-    path: T,
-    conn: &Connection,
-) -> Result<Vec<(PathBuf, String)>> {
-    let mut ret = Vec::new();
-
-    let (tx, rx) = bounded(100);
-    let handle = std::thread::spawn(|| {
-        let mut templates = Vec::new();
-
-        for template in rx {
-            templates.push(template);
-        }
-
-        templates
-    });
-
-    WalkBuilder::new(path).build_parallel().run(|| {
-        let tx = tx.clone();
-
-        Box::new(move |path| {
-            if let Ok(p) = path
-                && !p.path().is_dir()
-            {
-                let content = fs::read(p.path()).expect("Error reading from file.");
-                tx.send((p.into_path(), content))
-                    .expect("Error while sending.");
-            }
-
-            WalkState::Continue
-        })
-    });
-
-    drop(tx);
-
-    let templates = handle
-        .join()
-        .map_err(|e| io::Error::other(format!("Collector thread panicked: {e:?}")))?;
-
-    let hashes = templates
-        .par_iter()
-        .map(|(_, s)| format!("{:016x}", seahash::hash(s)))
-        .collect::<Vec<String>>();
-
-    for ((path, _), hash) in templates.into_iter().zip(hashes) {
-        let hashes = get_template_hashes(conn, &path)?;
-
-        if hashes.is_empty() || hashes[0] != hash {
-            ret.push((path, hash));
-        }
-    }
-
-    Ok(ret)
-}
-
 #[cfg(test)]
 mod tests {
     use chrono::{TimeZone, Utc};
@@ -203,7 +151,7 @@ Hello World
                 Page::new(
                     format!("site/_content/series/testing/post-{n}.md"),
                     &s,
-                    "hashplaceholder".to_string(),
+                    blake3::hash(b"hashplaceholder"),
                     "public/",
                     "site/",
                     &Url::parse("https://example.com")?,

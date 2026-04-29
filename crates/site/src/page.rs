@@ -1,14 +1,14 @@
 use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
+use blake3::Hash;
 use color_eyre::Result;
 use color_eyre::eyre::ContextCompat;
 use minify_html::{Cfg, minify};
 use minijinja::{Environment, Value, context};
 use serde::{Deserialize, Serialize};
-use std::hash::Hash;
+use std::hash::Hash as StdHash;
 use url::Url;
 use yar_markdown::{Document, MarkdownRenderer};
 
@@ -20,7 +20,7 @@ use crate::utils::fs::ensure_directory;
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct Page {
     pub path: PathBuf,
-    pub source_hash: String,
+    pub source_hash: Hash,
     pub out_path: PathBuf,
     pub permalink: Url,
     pub document: Document,
@@ -31,7 +31,7 @@ impl Page {
     pub fn new<P: AsRef<Path>, T: AsRef<Path>, Z: AsRef<Path>>(
         path: P,
         content: &str,
-        source_hash: String,
+        source_hash: Hash,
         out_dir: T,
         root: Z,
         url: &Url,
@@ -57,7 +57,7 @@ impl Page {
         })
     }
 
-    pub fn render(&self, index: &[Arc<Self>], env: &Environment) -> Result<()> {
+    pub fn render(&self, index: &[Self], env: &Environment) -> Result<()> {
         ensure_directory(
             self.out_path
                 .parent()
@@ -84,7 +84,7 @@ impl Page {
     }
 }
 
-impl Hash for Page {
+impl StdHash for Page {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.path.hash(state);
     }

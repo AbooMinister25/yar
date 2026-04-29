@@ -35,7 +35,7 @@ pub enum Value {
     Bool(bool),
     Number(i32),
     String(String),
-    List(Vec<Value>),
+    List(Vec<Self>),
 }
 
 /// Evaluate all the shortcodes in a given string.
